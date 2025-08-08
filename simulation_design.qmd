@@ -1,0 +1,103 @@
+# Simulation Design
+
+The literature review underscores that maximum drawdown (MDD) is heavily influenced by the distributional properties of returns, particularly serial correlation (@HarveyLiu2020_drawdown_greeks; @Bailey2014_triple_penance). To quantify these effects, we design simulations that allow direct control over key parameters such as mean return, volatility, and autocorrelation. The simulation framework also provides a benchmark against which we can compare empirical results from real markets.
+
+## 1. Objectives
+
+Our simulations aim to:
+
+1. Estimate the distribution of MDD under different return processes.
+2. Quantify how autocorrelation (ρ in an AR(1) process) affects:
+   - Expected MDD
+   - Average drawdown
+   - Sharpe ratio
+   - Recovery time from drawdowns
+3. Compare the impact of stop-loss rules to a buy-and-hold baseline under these processes.
+
+## 2. Return Processes
+
+We simulate two broad categories of returns:
+
+- **i.i.d. Gaussian**  
+  Returns follow \( r_t \sim \mathcal{N}(\mu, \sigma^2) \), independent across time.
+
+- **AR(1) Gaussian**  
+  Returns follow \( r_t = \mu + \rho (r_{t-1} - \mu) + \epsilon_t \),  
+  where \( \epsilon_t \sim \mathcal{N}(0, \sigma^2) \).  
+  The parameter \( \rho \) controls serial correlation.  
+  Positive ρ is associated with longer and deeper drawdowns (@Bailey2014_triple_penance).
+
+## 3. Performance Metrics
+
+For each simulated path, we compute:
+
+- **CAGR** (Compounded Annual Growth Rate)
+- **Volatility** (annualized standard deviation)
+- **Sharpe Ratio**
+- **Maximum Drawdown (MDD)**
+- **Average Drawdown** (mean of all drawdowns)
+- **Recovery Time** (time to regain previous peak after MDD)
+
+When evaluating stop-loss rules, we measure these metrics for:
+
+- **Buy-and-hold baseline**
+- **Fixed-percentage stop-loss** (e.g., 10%)
+- **Volatility-scaled stop-loss** (threshold adjusted to target constant ex-ante risk)
+
+## 4. Simulation Parameters
+
+Baseline configuration:
+
+| Parameter              | Value           |
+|------------------------|-----------------|
+| Mean daily return (μ)  | 0.04% (≈ 10% annualized) |
+| Daily volatility (σ)   | 1% (≈ 16% annualized)    |
+| Autocorrelation (ρ)    | {0.0, 0.1, 0.2, 0.3}     |
+| Trading days/year      | 252             |
+| Simulation length      | 10 years        |
+| Number of trials       | 10,000          |
+
+## 5. Implementation
+
+Below is a Python code template to run the simulation and compute metrics:
+
+```python
+import numpy as np
+import pandas as pd
+
+def simulate_returns(mu, sigma, rho, T, n_trials):
+    rets = np.zeros((n_trials, T))
+    eps = np.random.normal(0, sigma, size=(n_trials, T))
+    rets[:, 0] = mu + eps[:, 0]
+    for t in range(1, T):
+        rets[:, t] = mu + rho * (rets[:, t-1] - mu) + eps[:, t]
+    return rets
+
+def compute_drawdowns(returns):
+    wealth = (1 + returns).cumprod(axis=1)
+    running_max = np.maximum.accumulate(wealth, axis=1)
+    drawdowns = (wealth - running_max) / running_max
+    mdd = drawdowns.min(axis=1)
+    avg_dd = drawdowns[drawdowns < 0].mean(axis=1)
+    return mdd, avg_dd
+
+def run_simulation(mu, sigma, rho_values, years=10, trials=10000):
+    T = years * 252
+    results = []
+    for rho in rho_values:
+        rets = simulate_returns(mu, sigma, rho, T, trials)
+        mdd, avg_dd = compute_drawdowns(rets)
+        cagr = (1 + rets).prod(axis=1)**(252/T) - 1
+        vol = rets.std(axis=1) * np.sqrt(252)
+        sharpe = np.divide(cagr, vol, out=np.zeros_like(cagr), where=vol!=0)
+        results.append(pd.DataFrame({
+            'rho': rho, 'CAGR': cagr, 'Vol': vol,
+            'Sharpe': sharpe, 'MDD': mdd, 'AvgDD': avg_dd
+        }))
+    return pd.concat(results, ignore_index=True)
+
+# Example run
+res = run_simulation(mu=0.0004, sigma=0.01, rho_values=[0.0, 0.1, 0.2, 0.3])
+summary = res.groupby('rho').agg({'CAGR':'mean', 'Vol':'mean', 'Sharpe':'mean', 'MDD':'mean', 'AvgDD':'mean'})
+print(summary)
+```
