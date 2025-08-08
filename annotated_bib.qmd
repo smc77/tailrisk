@@ -1,8 +1,4 @@
 
-* **Title**: *You Are in a Drawdown. When Should You Start Worrying?*
-* **Authors**: Adam Rej, Philip Seager, Jean-Philippe Bouchaud
-* **Abstract summary**: Provides closed-form probability distributions for the *length* and *depth* of the *last drawdown* in upward-drifting Brownian motion, offering quantitative criteria to spot when a drawdown is “too long” or “too deep” relative to the assumed Sharpe ratio. ([arxiv.org][1])
-
 ## Annotated Bibliography
 
 ### Theory of drawdowns & their distributions
