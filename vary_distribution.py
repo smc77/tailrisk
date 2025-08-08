@@ -1,20 +1,13 @@
-# Two-factor AR(1) sims:
-# Set A: vary rho with mu_ann=0
-# Set B: vary mu_ann with rho=0
-# Annual vol fixed at 5%. Trailing stop = 5%, re-enter above prior peak.
-# Charts: separate figures for each metric, per set. Marker 'o' = BuyHold, 'x' = Stop5%.
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from caas_jupyter_tools import display_dataframe_to_user
 
-np.random.seed(7)
+np.random.seed(11)
 
+# Simulation parameters
 YEARS = 10
 DAYS = 252 * YEARS
 TRIALS = 60
-
 sigma_annual = 0.05
 sigma_daily = sigma_annual / np.sqrt(252.0)
 
@@ -58,9 +51,9 @@ def compute_metrics(returns_series: pd.Series):
     cagr = (wealth.iloc[-1] / wealth.iloc[0]) ** (252 / len(wealth)) - 1
     vol_ann = rets.std() * np.sqrt(252)
     sharpe = cagr / vol_ann if vol_ann and not np.isnan(vol_ann) and vol_ann != 0 else np.nan
-    return dict(CAGR=cagr, Vol=vol_ann, Sharpe=sharpe, MDD=mdd)
+    return dict(CAGR=float(cagr), Vol=float(vol_ann), Sharpe=float(sharpe), MDD=float(mdd))
 
-def run_grid(param_values, vary="rho", fixed_mu_ann=0.0, fixed_rho=0.0):
+def run_grid_with_ci(param_values, vary="rho", fixed_mu_ann=0.0, fixed_rho=0.0):
     rows = []
     for val in param_values:
         if vary == "rho":
@@ -68,53 +61,74 @@ def run_grid(param_values, vary="rho", fixed_mu_ann=0.0, fixed_rho=0.0):
         else:
             rho = fixed_rho; mu_ann = float(val)
         mu_d = mu_ann / 252.0
-        bh_list, sl_list = [], []
-        for _ in range(TRIALS):
-            r = simulate_ar1_path(mu_d, sigma_daily, rho, DAYS)
-            price = pd.Series(100.0 * np.cumprod(1 + r), index=pd.RangeIndex(DAYS))
-            bh_rets = price.pct_change().dropna()
-            sl_rets = trailing_stop_returns(price, stop_pct=0.05).iloc[1:]
-            bh_list.append(compute_metrics(bh_rets))
-            sl_list.append(compute_metrics(sl_rets))
-        bh_ = pd.DataFrame(bh_list).mean().to_dict()
-        sl_ = pd.DataFrame(sl_list).mean().to_dict()
-        rows.append({"Strategy":"BuyHold", vary: val, "mu_ann": mu_ann, "rho": rho, **bh_})
-        rows.append({"Strategy":"Stop5pct", vary: val, "mu_ann": mu_ann, "rho": rho, **sl_})
+        for strat_name in ["BuyHold", "Stop5pct"]:
+            metrics_list = []
+            for _ in range(TRIALS):
+                r = simulate_ar1_path(mu_d, sigma_daily, rho, DAYS)
+                price = pd.Series(100.0 * np.cumprod(1 + r), index=pd.RangeIndex(DAYS))
+                if strat_name == "BuyHold":
+                    rets = price.pct_change().dropna()
+                else:
+                    rets = trailing_stop_returns(price, stop_pct=0.05).iloc[1:]
+                metrics_list.append(compute_metrics(rets))
+            dfm = pd.DataFrame(metrics_list).apply(pd.to_numeric, errors="coerce")
+            dfm = dfm.dropna()
+            for metric in ["CAGR","Vol","MDD","Sharpe"]:
+                if metric not in dfm or dfm[metric].empty:
+                    mean = np.nan; ci_low = np.nan; ci_high = np.nan
+                else:
+                    mean = dfm[metric].mean()
+                    se = dfm[metric].std(ddof=1) / np.sqrt(len(dfm))
+                    ci_low = mean - 1.96 * se
+                    ci_high = mean + 1.96 * se
+                rows.append({
+                    "Strategy": strat_name,
+                    vary: float(val),
+                    "mu_ann": float(mu_ann),
+                    "rho": float(rho),
+                    "Metric": metric,
+                    "Mean": float(mean) if pd.notna(mean) else np.nan,
+                    "CI_low": float(ci_low) if pd.notna(ci_low) else np.nan,
+                    "CI_high": float(ci_high) if pd.notna(ci_high) else np.nan
+                })
     return pd.DataFrame(rows)
 
-# Set A: vary rho
+# Run Set A (vary rho, mu=0) and Set B (vary mu, rho=0)
 rho_values = np.linspace(-0.5, 0.5, 11)
-df_rho = run_grid(rho_values, vary="rho", fixed_mu_ann=0.0)
-
-# Set B: vary mu_ann
 mu_values = np.linspace(-0.10, 0.10, 9)
-df_mu = run_grid(mu_values, vary="mu_ann", fixed_rho=0.0)
 
-# Save/display tables
-display_dataframe_to_user("Set A (vary rho, mu_ann=0): metrics", df_rho)
-display_dataframe_to_user("Set B (vary mu_ann, rho=0): metrics", df_mu)
+df_rho_ci = run_grid_with_ci(rho_values, vary="rho", fixed_mu_ann=0.0)
+df_mu_ci  = run_grid_with_ci(mu_values, vary="mu_ann", fixed_rho=0.0)
 
-# Plot helpers
-def plot_set(df, xcol, title_prefix):
-    # Each metric in its own plot
-    for metric, ylbl in [("CAGR","CAGR"),("Vol","Annualized Volatility"),("MDD","Max Drawdown"),("Sharpe","Sharpe Ratio")]:
+print(df_rho_ci)
+print(df_mu_ci)
+
+def sort_and_clean(sub, xcol):
+    sub = sub[[xcol,"Mean","CI_low","CI_high"]].dropna()
+    sub = sub.sort_values(xcol)
+    # cast to float numpy arrays for plotting
+    x = sub[xcol].astype(float).values
+    mean = sub["Mean"].astype(float).values
+    lo = sub["CI_low"].astype(float).values
+    hi = sub["CI_high"].astype(float).values
+    return x, mean, lo, hi
+
+def plot_with_ci(df, xcol, title_prefix):
+    metrics = ["CAGR","Vol","MDD","Sharpe"]
+    for metric in metrics:
         plt.figure()
-        for strat, marker in [("BuyHold",'o'),("Stop5pct",'x')]:
-            sub = df[df["Strategy"]==strat]
-            plt.scatter(sub[xcol], sub[metric], marker=marker, label=strat, alpha=0.8)
+        # One line per strategy
+        for strat in ["BuyHold","Stop5pct"]:
+            sub = df[(df["Strategy"]==strat) & (df["Metric"]==metric)]
+            x, mean, lo, hi = sort_and_clean(sub, xcol)
+            plt.plot(x, mean, label=strat)
+            plt.fill_between(x, lo, hi, alpha=0.2)
         plt.xlabel(xcol)
-        plt.ylabel(ylbl)
-        plt.title(f"{title_prefix}: {ylbl} vs {xcol}")
+        plt.ylabel(metric)
+        plt.title(f"{title_prefix}: {metric} vs {xcol} (95% CI shaded)")
         plt.legend()
         plt.tight_layout()
         plt.show()
 
-plot_set(df_rho, "rho", "Set A (mu_ann=0)")
-plot_set(df_mu, "mu_ann", "Set B (rho=0)")
-
-# Export CSVs so you can grab them if needed
-df_rho.to_csv("/mnt/data/sim_setA_vary_rho.csv", index=False)
-df_mu.to_csv("/mnt/data/sim_setB_vary_mu.csv", index=False)
-print("CSV exports ready:",
-      "/mnt/data/sim_setA_vary_rho.csv",
-      "/mnt/data/sim_setB_vary_mu.csv")
+plot_with_ci(df_rho_ci, "rho", "Set A (mu_ann=0)")
+plot_with_ci(df_mu_ci, "mu_ann", "Set B (rho=0)")
