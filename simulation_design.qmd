@@ -101,3 +101,20 @@ res = run_simulation(mu=0.0004, sigma=0.01, rho_values=[0.0, 0.1, 0.2, 0.3])
 summary = res.groupby('rho').agg({'CAGR':'mean', 'Vol':'mean', 'Sharpe':'mean', 'MDD':'mean', 'AvgDD':'mean'})
 print(summary)
 ```
+
+## 6. Extensions
+Block bootstrap of empirical returns to preserve realistic dependence structures.
+
+Stop-loss overlay testing by replacing returns after a threshold breach with a risk-free rate until re-entry conditions are met.
+
+Time-to-recovery analysis to quantify the Triple Penance effect under different ρ values.
+
+## 7. Empirical Link
+The simulation results provide a benchmark for interpreting drawdowns in the S&P 500, US 10-Year Treasury Notes, and Bitcoin.
+We will:
+
+Compute historical MDD, average drawdown, and recovery times for each asset.
+
+Compare these to simulation results under matching estimated μ, σ, and ρ.
+
+Evaluate how well stop-loss rules would have mitigated large historical drawdowns relative to theoretical expectations.
