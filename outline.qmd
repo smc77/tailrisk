@@ -1,0 +1,235 @@
+
+# Executive Summary
+
+* One-page overview of questions, methods, main findings, and practical guidance.
+* Key chart montage: simulated vs empirical MDD, early-warning dashboard snapshot, stop-loss vs hedging comparison.
+
+# Introduction
+
+* Motivation: why drawdowns matter more than volatility.
+* Research questions and contributions.
+* Roadmap of the document.
+
+# Definitions and Measurement
+
+## Core Drawdown Metrics
+
+* Maximum Drawdown (MDD), Average Drawdown, Time Under Water (TUW), Ulcer Index.
+* Recovery time (to prior peak), Triple Penance intuition.
+
+## Return Process Assumptions
+
+* i.i.d., AR(1), regime-switching, multifractal/heteroskedastic volatility.
+
+## Reporting Standards
+
+* Annualization conventions, sample frequency, estimation windows, confidence intervals.
+
+# Literature Review (Condensed)
+
+## Drawdown Theory
+
+* Brownian/diffusion results, distributional properties, sensitivity to autocorrelation.
+
+## Drawdown Risk Measures
+
+* CED/CDaR and optimization under drawdown constraints.
+
+## Predicting Drawdowns
+
+* LPPL (Sornette), correlation/eigenvalue spikes, regime-switch probabilities, critical slowing down.
+* Soros reflexivity (behavioral feedback); Mandelbrot multifractals (wild randomness).
+
+## Stop-Loss Rules
+
+* When they help/hurt; serial correlation, regime persistence, and transaction costs.
+
+# Data and Infrastructure
+
+## Assets and Horizons
+
+* S\&P 500 total return (or SPY + dividends), US 7–10Y Treasuries (e.g., IEF), Bitcoin (BTC-USD).
+* Daily frequency; extensions to intraday (optional).
+
+## Sources
+
+* CRSP/Compustat (if available), Yahoo/FRED/Quandl, Crypto exchange (Bitstamp/Coinbase).
+
+## Cleaning and Alignment
+
+* Corporate actions, holidays, time zone normalization, stable timestamp joins.
+
+## Reproducibility
+
+* Python env (requirements.txt), config.yml, deterministic seeds; data versioning notes.
+
+# Simulation Framework
+
+## Processes
+
+* i.i.d. Gaussian; AR(1) with ρ ∈ \[−0.5, 0.5]; Markov Regime Switching (2–3 states).
+* Optional: GARCH(1,1) / stochastic volatility for clustered vol.
+
+## Metrics
+
+* CAGR, Vol, Sharpe, MDD, AvgDD, TUW, recovery time; CI via MC SE.
+
+## Experiments
+
+* Vary ρ at μ=0; vary μ at ρ=0; grid over (μ, ρ, σ).
+* Add costs and slippage stress (spread regimes, gap risk).
+
+## Outputs
+
+* Lines + shaded 95% CIs for each metric; heatmaps (μ×ρ) for MDD/Sharpe; frontier plots (AvgDD vs Sharpe vs CAGR).
+
+# Empirical Measurement
+
+## Estimation
+
+* Rolling μ, σ, ρ; realized vol; rolling MDD/AvgDD/TUW; recovery time post drawdown.
+
+## Case Studies
+
+* Dot-com, GFC, COVID crash; BTC 2017 & 2021 cycles.
+
+## Cross-Asset Views
+
+* Equity vs Rates vs BTC: compare level and *shape* of drawdown paths.
+
+# Early-Warning Signals
+
+## Price-Dynamics
+
+* LPPL fits with stability checks; parameter constraints; out-of-sample tracking.
+
+## Correlation/Systemic Risk
+
+* Rolling correlation matrices; top eigenvalue; PCA concentration; breadth.
+
+## Volatility/Resilience
+
+* Realized & implied vol, term structures; critical slowing down (AC(1), variance rise).
+
+## Liquidity/Microstructure (optional if data available)
+
+* Amihud illiquidity, bid–ask spreads, order-book depth proxies; ETF prem/discount.
+
+## Cross-Asset “Risk Compass”
+
+* Credit spreads (IG/HY), VIX term slope, MOVE, gold vs USD, stablecoins (for BTC stress).
+
+## Evaluation
+
+* Hazard/survival models for “entering a ≥X% drawdown within Y days.”
+* Calibration curves, AUC/PR, Brier score; utility-based scoring (downside heat avoided).
+
+# Stop-Loss and Dynamic De-Risking
+
+## Rules Tested
+
+* Fixed % trailing stops; vol-scaled stops; time-based re-entries; breakout/breakdown overlays.
+
+## Cost Model
+
+* Commissions, slippage, spread widening in stress; execution style variants (MKT/LMT/VWAP).
+
+## Strategy Context
+
+* Apply overlays to Buy-and-Hold, Time-Series Momentum, Mean-Reversion, Carry.
+
+## Results
+
+* Net of costs: MDD/AvgDD reduction vs CAGR drag; Sharpe and TUW changes.
+* Sensitivity to ρ, regime persistence, and signal noise.
+
+# Alternatives and Complements to Stop-Loss
+
+## Tail Hedges
+
+* Long vol (VIX futures/options), protective puts, collars; budgeted hedge overlays.
+
+## Dynamic Allocation
+
+* Risk parity tilt down in correlation spikes; target-vol controls; drawdown-triggered de-risk.
+
+## Benchmarking
+
+* Compare stop-loss vs hedges on same capital budget and turnover.
+
+# Model Integration and Policy
+
+## Decision Engine
+
+* “Traffic light” risk state combining signals (Bayesian or logistic ensemble).
+* Action map: exposure cuts, stop threshold tightening, or hedge activation.
+
+## Governance
+
+* Parameter stability, look-ahead and multiple-testing controls, live-vs-paper tracking.
+
+# Robustness and Pitfalls
+
+* Multiple hypothesis risk, data-snooping, regime instability.
+* Backtest overfitting (walk-forward, nested CV, expanding windows).
+* Stress scenarios: liquidity drought, price gaps, stale quotes, trading halts.
+
+# Results Synthesis
+
+* What simulations predict vs what we observe.
+* When stop-losses help (trend, persistent bad regimes, cheap trading) vs hurt (noise, mean-reversion, high costs).
+* Practical guidance: default settings, “turn off” conditions, and monitoring cadence.
+
+# Conclusions and Practitioner Checklist
+
+* Plain-English takeaways for risk committees.
+* Implementation checklist (data, dashboards, controls).
+
+# Appendices
+
+## A. Mathematical Details
+
+* Drawdown distributions, LPPL form & constraints, hazard model specs.
+
+## B. Data Tables and Parameter Grids
+
+* Full metric panels; CI tables; hyper-parameters.
+
+## C. Code Snippets
+
+* Reusable functions: drawdown metrics, stop-logic, LPPL fitting, hazard models.
+
+---
+
+## Suggested Figures (at minimum)
+
+* Simulation lines w/ shaded CIs (CAGR/Vol/MDD/Sharpe vs ρ and vs μ).
+* Empirical drawdown panels for each asset (wealth + drawdown).
+* Early-warning dashboard (eigenvalue, vol, breadth, LPPL risk window).
+* Stop-loss vs buy-and-hold scatter/frontier (AvgDD vs Sharpe).
+* Comparison of stop-loss vs tail-hedge effectiveness.
+
+## Datasets and Proxies (pragmatic defaults)
+
+* **S\&P 500 TR**: ^SP500TR or SPY + dividend adjustment.
+* **US 7–10Y**: IEF (or constant-maturity 10Y TR approximation).
+* **Bitcoin**: BTC-USD (daily close; consider multiple exchanges for robustness).
+* **Signals**: VIX, MOVE, HY OAS (FRED), ADV/DECL breadth, PCA on sector returns.
+
+## Methods Notes (to avoid common traps)
+
+* Use **expanding windows** for parameter estimation in tests to avoid look-ahead.
+* Lock signal generation cutoff (e.g., NY close + 5m) and trade next bar open/close consistently.
+* Apply **transaction cost stress** (base, ×2, ×3 spreads) and **execution variants**.
+* Report **CIs** for all key metrics; highlight **TUW** and **recovery time** alongside MDD.
+
+## Implementation Roadmap (actionable)
+
+1. **Finalize metrics + thresholds** (e.g., MDD trigger sizes, LPPL window lengths, eigenvalue window).
+2. **Build the dashboard**: rolling μ/σ/ρ, MDD/TUW, eigenvalue(1), vol term structures, breadth.
+3. **Run baselines**: simulations (μ/ρ grids with CIs), empirical metrics for each asset.
+4. **Fit early-warning models**: hazard model with k-fold time splits; calibrate probabilities.
+5. **Overlay tests**: stop-loss variants and tail-hedge benchmarks with cost scenarios.
+6. **Case-study narratives**: align dashboard states to known events; sanity-check timing.
+7. **Synthesize**: frontier plots, policy rules, and a one-pager of recommendations.
+
