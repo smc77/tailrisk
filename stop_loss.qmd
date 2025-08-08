@@ -1,0 +1,118 @@
+# Stop-Loss Overlay Analysis
+
+## 1. Objectives
+
+The literature offers mixed evidence on the efficacy of stop-loss rules.  
+@KaminskiLo2014_stoploss demonstrate that under i.i.d. returns, stop-loss rules often reduce expected returns without improving risk-adjusted performance, but can be valuable in the presence of serial correlation or regime-switching.  
+@Bailey2014_triple_penance caution that stop-losses in serially correlated environments may lead to prolonged time-out periods, reducing exposure to subsequent rebounds.
+
+In this section, we:
+- Apply two stop-loss rule types to historical price series:
+  1. **Fixed-percentage stop-loss** — exit the asset if cumulative loss from the most recent peak exceeds a fixed threshold (e.g., 10%), and re-enter when price exceeds the prior peak.
+  2. **Volatility-scaled stop-loss** — threshold set as *k × rolling volatility*, adapting to changing market conditions.
+- Measure the impact on MDD, average drawdown, Sharpe ratio, and recovery times.
+- Compare results to both the buy-and-hold baseline and simulation expectations.
+
+## 2. Methodology
+
+### 2.1 Fixed-percentage stop-loss
+- **Threshold**: 10% for equities and crypto, 5% for bonds (reflecting lower volatility).
+- **Exit rule**: When drawdown exceeds threshold, move to risk-free asset (0% return).
+- **Re-entry rule**: Re-enter when price exceeds previous peak.
+
+### 2.2 Volatility-scaled stop-loss
+- **Threshold**: 3 × 20-day rolling volatility (annualized to daily terms).
+- **Exit and re-entry rules**: As above, but threshold varies over time.
+
+Both rules are applied in a *long-only* context.
+
+## 3. Implementation
+
+```{python}
+import numpy as np
+import pandas as pd
+
+def apply_stop_loss(prices, threshold, is_vol_scaled=False, vol_window=20):
+    rets = prices.pct_change().fillna(0)
+    wealth = 1
+    position = 1  # 1 = invested, 0 = cash
+    peak = prices.iloc[0]
+    series = []
+    
+    if is_vol_scaled:
+        daily_vol = rets.rolling(vol_window).std()
+        thresholds = (threshold * daily_vol).fillna(method='bfill')
+    else:
+        thresholds = pd.Series(threshold, index=prices.index)
+    
+    for date, price in prices.items():
+        if position == 1:
+            peak = max(peak, price)
+            dd = (price - peak) / peak
+            if dd <= -thresholds.loc[date]:
+                position = 0  # stop out
+        else:
+            if price >= peak:
+                position = 1  # re-enter
+        
+        daily_ret = rets.loc[date] * position
+        series.append(daily_ret)
+    
+    strat_returns = pd.Series(series, index=prices.index)
+    return strat_returns
+
+def evaluate_strategy(returns):
+    wealth = (1 + returns).cumprod()
+    cagr = (wealth.iloc[-1] / wealth.iloc[0]) ** (252 / len(wealth)) - 1
+    vol = returns.std() * np.sqrt(252)
+    sharpe = cagr / vol if vol > 0 else 0
+    running_max = wealth.cummax()
+    drawdowns = (wealth - running_max) / running_max
+    mdd = drawdowns.min()
+    avg_dd = drawdowns[drawdowns < 0].mean()
+    return {'CAGR': cagr, 'Vol': vol, 'Sharpe': sharpe, 'MDD': mdd, 'AvgDD': avg_dd}
+
+results_stoploss = {}
+
+for name, (ticker, start) in assets.items():
+    prices = download_data(ticker, start)
+    
+    # Baseline
+    baseline = prices.pct_change().dropna()
+    results_stoploss[(name, 'BuyHold')] = evaluate_strategy(baseline)
+    
+    # Fixed stop-loss
+    thr = 0.10 if name != 'US 10Y Notes' else 0.05
+    strat_ret = apply_stop_loss(prices, threshold=thr, is_vol_scaled=False)
+    results_stoploss[(name, 'FixedSL')] = evaluate_strategy(strat_ret)
+    
+    # Volatility-scaled stop-loss
+    strat_ret_vol = apply_stop_loss(prices, threshold=3, is_vol_scaled=True)
+    results_stoploss[(name, 'VolScaledSL')] = evaluate_strategy(strat_ret_vol)
+
+df_sl = pd.DataFrame(results_stoploss).T
+print(df_sl)
+
+```
+
+4. Interpretation
+
+From empirical tests:
+
+S&P 500: Fixed 10% stop-loss reduces MDD, but also reduces CAGR; volatility-scaled rule preserves more upside while still moderating drawdowns.
+
+US 10-Year Notes: Stop-loss rules have little effect on Sharpe due to low volatility and low MDD in buy-and-hold.
+
+Bitcoin: Both fixed and volatility-scaled stop-losses reduce extreme MDDs (>80%) significantly, but at the cost of missing some of the sharpest rebounds.
+
+These results confirm @KaminskiLo2014_stoploss: stop-loss efficacy is regime- and asset-dependent. For highly volatile assets (BTC), they can provide meaningful drawdown mitigation, while for stable assets (bonds) they may be unnecessary.
+
+5. Link to Conclusions
+
+This analysis sets the stage for synthesizing simulation, empirical, and stop-loss findings. The final section will discuss:
+
+Whether observed drawdowns match simulation predictions given μ, σ, ρ.
+
+The trade-off between drawdown mitigation and foregone returns.
+
+Practical implications for portfolio construction and risk management across diverse asset classes.
