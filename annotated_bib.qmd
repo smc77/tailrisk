@@ -1,0 +1,58 @@
+
+* **Title**: *You Are in a Drawdown. When Should You Start Worrying?*
+* **Authors**: Adam Rej, Philip Seager, Jean-Philippe Bouchaud
+* **Abstract summary**: Provides closed-form probability distributions for the *length* and *depth* of the *last drawdown* in upward-drifting Brownian motion, offering quantitative criteria to spot when a drawdown is “too long” or “too deep” relative to the assumed Sharpe ratio. ([arxiv.org][1])
+
+## Annotated Bibliography
+
+### Theory of drawdowns & their distributions
+
+- **Magdon-Ismail, Atiya, Pratap, Abu-Mostafa (2004)**  
+  Closed-form and series-based results for the maximum drawdown of Brownian motion with drift—fundamental baseline for theoretical modelling.
+
+- **Hadjiliadis & Vecer**  
+  First-passage and drawdown properties for diffusion processes; frames drawdowns in terms of “time to crash.”
+
+- **Rej, Seager & Bouchaud (2017)** — *“You Are in a Drawdown…, When Should You Start Worrying?”*  
+  Derives exact distributions for the length and depth of the most recent drawdown in upward-drifting Brownian motion, offering quantitative alert thresholds where drawdowns exceed what the assumed Sharpe ratio predicts.  
+
+
+---
+
+### Risk measures based on drawdown
+
+* **Goldberg & Mahmoud (2014)** — *Conditional Expected Drawdown (CED)*; highlights sensitivity to serial correlation and practical implications for risk attribution and portfolio optimization.
+
+* **Chekhlov, Uryasev & Zabarankin** — *CDaR (Conditional Drawdown-at-Risk)*: a risk-measure analog to CVaR, tailored for drawdown-based optimization.
+
+---
+
+### Optimization under drawdown constraints
+
+* **Grossman & Zhou (1993)** — Classic framework for optimal portfolio choice under drawdown constraints in continuous time.
+
+* **Angoshtari, Bayraktar & Young (2015)** — Minimization of drawdown probability in Black-Scholes models with payout considerations.
+
+* **Hsieh & Barmish (2017)** — Feedback control strategies for managing drawdowns, with connections to Kelly betting under drawdown constraints.
+
+---
+
+### Predicting drawdowns & early warnings
+
+* **Harvey & Liu (2020)** — Practitioner-oriented “Drawdown Greeks”; quantify drawdown risk sensitivity to Sharpe, horizon, and autocorrelation.
+
+* **Bailey & López de Prado (2014)** — *Triple Penance Rule*: serial correlation in returns prolongs recovery time roughly threefold; acute warning for investors using stop-loss.
+
+* **Conlon, Ruskin & Crane (2010)** — Co-movement analysis via eigenvalues captures drawdown risk in financial markets.
+
+* **Rej, Seager & Bouchaud (2017)** — Provides thresholds for when current drawdowns are statistically unusual, given a strategy’s historical Sharpe ratio (see above).
+
+---
+
+### Stop-loss rules: evaluation & theory
+
+* **Kaminski & Lo (2013/2014)** — Stop-loss rules may erode expected returns under random-walk markets, but can be beneficial under momentum or regime-switch dynamics.
+
+* **Zambelli (2016)** — Bayesian calibration of stop thresholds based on max-drawdown distributions, including intraday strategy demonstrations.
+
+* **CAIA / Triple Penance commentary** — Behavioral insight into manager selection and stop-loss pitfalls in the context of drawdown recovery periods.
