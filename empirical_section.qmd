@@ -1,0 +1,125 @@
+# Empirical Analysis
+
+## 1. Objectives
+
+Building on the simulation benchmarks, our empirical analysis examines historical drawdowns for three distinct markets:
+
+1. **S&P 500 Index** — broad US equity market benchmark.
+2. **US 10-Year Treasury Notes** — representative of intermediate-term US government bond performance.
+3. **Bitcoin (BTC-USD)** — highly volatile cryptocurrency with a short but eventful history.
+
+The goal is to:
+- Measure and compare maximum drawdown (MDD), average drawdown, Sharpe ratio, and recovery times.
+- Estimate the underlying return process parameters (μ, σ, ρ) for each asset.
+- Assess whether historical drawdowns are in line with theoretical expectations from our simulations.
+
+## 2. Data
+
+We use daily total return series for each asset:
+
+| Asset               | Source                               | Period                 |
+|---------------------|--------------------------------------|------------------------|
+| S&P 500 TR Index    | Yahoo Finance (`^SP500TR`)           | 1988–present           |
+| US 10-Year T-Note   | FRED / Yahoo Finance (`^IRX` or ETF proxy) | 1990–present           |
+| Bitcoin             | Yahoo Finance (`BTC-USD`)            | 2014–present           |
+
+Data are adjusted for splits and dividends (where applicable) to reflect total returns.
+
+## 3. Methodology
+
+1. **Return Computation**  
+   Daily log returns are computed as  
+   \( r_t = \ln\left(\frac{P_t}{P_{t-1}}\right) \).
+
+2. **Parameter Estimation**  
+   - μ: Mean daily return  
+   - σ: Standard deviation of daily returns  
+   - ρ: 1-lag autocorrelation coefficient of returns  
+
+3. **Drawdown Measures**  
+   - MDD: Minimum peak-to-trough percentage change.  
+   - Average drawdown: Mean of all drawdowns in the sample.  
+   - Recovery time: Number of trading days to exceed previous peak after MDD.
+
+4. **Comparison to Simulation**  
+   Parameters (μ, σ, ρ) are used to identify the nearest-matching simulation results.  
+   This allows direct comparison of empirical MDD and average drawdown to simulated expectations.
+
+## 4. Implementation
+
+```python
+import yfinance as yf
+import pandas as pd
+import numpy as np
+
+def download_data(ticker, start):
+    data = yf.download(ticker, start=start)
+    data = data['Adj Close']
+    return data
+
+def compute_metrics(prices):
+    rets = prices.pct_change().dropna()
+    mu = rets.mean()
+    sigma = rets.std()
+    rho = rets.autocorr(lag=1)
+    
+    wealth = (1 + rets).cumprod()
+    running_max = wealth.cummax()
+    drawdowns = (wealth - running_max) / running_max
+    mdd = drawdowns.min()
+    avg_dd = drawdowns[drawdowns < 0].mean()
+    
+    # Recovery time
+    trough_date = drawdowns.idxmin()
+    peak_before = running_max.loc[:trough_date].idxmax()
+    post_trough = wealth.loc[trough_date:]
+    try:
+        recovery_date = post_trough[post_trough >= running_max.loc[peak_before]].index[0]
+        recovery_time = (recovery_date - trough_date).days
+    except IndexError:
+        recovery_time = None  # Not recovered yet
+    
+    cagr = (wealth.iloc[-1] / wealth.iloc[0]) ** (252 / len(wealth)) - 1
+    sharpe = cagr / (sigma * np.sqrt(252))
+    
+    return {
+        'mu': mu, 'sigma': sigma, 'rho': rho,
+        'CAGR': cagr, 'Vol': sigma * np.sqrt(252),
+        'Sharpe': sharpe, 'MDD': mdd, 'AvgDD': avg_dd,
+        'RecoveryDays': recovery_time
+    }
+
+assets = {
+    'S&P 500': ('^SP500TR', '1988-01-01'),
+    'US 10Y Notes': ('IEF', '2002-01-01'),  # IEF ETF as proxy
+    'Bitcoin': ('BTC-USD', '2014-09-17')
+}
+
+results = {}
+for name, (ticker, start) in assets.items():
+    prices = download_data(ticker, start)
+    results[name] = compute_metrics(prices)
+
+df_results = pd.DataFrame(results).T
+print(df_results)
+
+```
+
+## 5. Interpretation
+S&P 500: Historically exhibits long drawdowns during recessions (e.g., 2000–2002, 2008–2009) with recovery periods exceeding 4 years.
+
+US 10-Year Notes: Lower volatility, smaller MDDs, but occasional multi-month drawdowns tied to rising rate environments.
+
+Bitcoin: Extremely high volatility and MDD values (>80%), with prolonged recovery times.
+
+By comparing the empirical metrics to our simulated benchmarks, we can determine:
+
+Whether observed drawdowns are unusually large given μ, σ, and ρ.
+
+How much serial correlation contributes to drawdown severity.
+
+Whether stop-loss overlays could have materially altered the drawdown profile.
+
+## 6. Link to Next Section
+
+The next step is to apply stop-loss overlays to each empirical series, re-compute performance metrics, and assess their effectiveness relative to both the buy-and-hold baseline and the simulation expectations.
