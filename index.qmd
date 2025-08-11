@@ -1,0 +1,29 @@
+
+---
+title: "Executive Summary"
+format: html
+---
+
+Drawdowns — sustained declines from prior peaks — are a central measure of investment risk. They capture not only the size of losses but also their duration and the psychological and liquidity pressures they impose on market participants. While volatility remains the industry’s standard risk metric, drawdowns often determine *actual* investor behavior, influencing capital withdrawals, mandate breaches, and risk appetite.
+
+This study examines drawdown risk through three complementary lenses:
+
+1. **Mechanics and measurement** — formal definitions of maximum drawdown (MDD), average drawdown, and time under water, along with their statistical properties under different return-generating processes.
+2. **Prediction and early warnings** — the potential to forecast elevated drawdown risk using tools from both quantitative finance (e.g., correlation spikes, regime-switching probabilities, LPPL bubble detection) and market theory (e.g., Soros’s reflexivity, Mandelbrot’s multifractal markets).
+3. **Mitigation strategies** — evaluating the performance of stop-loss rules, momentum-based overlays, and explicit hedges such as VIX futures and protective options.
+
+A central theme is the **connection between stop-loss rules and momentum trading**. A trailing stop that re-enters only above the prior peak inherently captures part of a time-series momentum strategy: it cuts risk when recent returns are negative and adds exposure when trend resumes. This link suggests that the efficacy of stop-losses will vary with the degree of return autocorrelation and the persistence of regimes — a hypothesis we test both in simulations and on historical data.
+
+Stop-losses are not the only path to drawdown control. We compare them with *explicit hedging* strategies, including:
+- **Volatility hedges**: buying VIX futures or calls when early-warning indicators trigger.
+- **Tail hedges**: purchasing out-of-the-money index puts or put spreads to cap downside.
+- **Dynamic allocation shifts**: moving capital to low-volatility or uncorrelated assets in high-risk regimes.
+
+Our empirical analysis spans the S&P 500, US 10-year Treasury notes, and Bitcoin — assets with distinct volatility, correlation, and drawdown profiles. Simulation studies use AR(1), regime-switching, and stochastic volatility models to explore a wide parameter space and quantify expected performance differences across strategies.
+
+**Key takeaways (preview):**
+- **Stop-loss effectiveness is conditional**: they tend to improve risk-adjusted returns when returns exhibit positive serial correlation and regimes persist, but can hurt performance in mean-reverting markets.
+- **Hedges offer complementary protection**: while they often cost carry in normal markets, they can sharply reduce maximum drawdown and time under water when timed with credible early-warning signals.
+- **Integrated approaches dominate**: blending signal-driven stop-loss logic with targeted hedging yields better drawdown control per unit of performance drag than either technique alone.
+
+This report proceeds from measurement to prediction to mitigation, grounding each step in both simulation and real-world data. By the conclusion, we present a framework for active drawdown management that integrates statistical signals, behavioral insights, and cost-aware strategy design.

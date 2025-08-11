@@ -1,0 +1,31 @@
+
+project:
+  type: book
+  output-dir: _output
+
+book:
+  title: "Drawdown Risk: Measurement, Prediction, and Mitigation"
+  author: "Your Name"
+  chapters:
+    - index.qmd
+    - sections/01_definitions.qmd
+    - sections/02_literature_review.qmd
+    - sections/03_simulation_framework.qmd
+    - sections/04_empirical_measurement.qmd
+    - sections/05_early_warnings.qmd
+    - sections/06_stoploss_and_hedging.qmd
+    - sections/07_results_synthesis.qmd
+    - sections/08_appendices.qmd
+
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    css: styles/custom.css
+  pdf:
+    documentclass: scrreprt
+
+bibliography: references.bib
+execute:
+  freeze: auto

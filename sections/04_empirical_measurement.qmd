@@ -1,0 +1,62 @@
+
+# Empirical Measurement
+
+We fetch daily data with **yfinance** and compute: returns, wealth & drawdowns, rolling μ/σ/ρ, and a summary table for SPY, IEF, and BTC.
+
+```{python}
+import pandas as pd, numpy as np, matplotlib.pyplot as plt
+from scripts.empirical_data import load_prices_yf, pct_returns, wealth_series, drawdown_series, rolling_stats, summary_metrics
+
+tickers = {
+    "S&P 500 (SPY adj close)": "SPY",
+    "US 7-10Y Treasury (IEF)": "IEF",
+    "Bitcoin (BTC-USD)": "BTC-USD",
+    "VIX Index (proxy only)": "^VIX"
+}
+
+prices = {}
+for label, t in tickers.items():
+    try:
+        prices[label] = load_prices_yf(t, start="2003-01-01")
+    except Exception as e:
+        print(f"Skipping {label}: {e}")
+
+rets = {k: pct_returns(v) for k, v in prices.items() if v is not None}
+summ = {k: summary_metrics(r) for k, r in rets.items() if k != "VIX Index (proxy only)"}
+pd.DataFrame(summ).T
+```
+
+```{python}
+# Wealth and drawdowns
+for label in ["S&P 500 (SPY adj close)", "US 7-10Y Treasury (IEF)", "Bitcoin (BTC-USD)"]:
+    if label not in rets: 
+        continue
+    r = rets[label]
+    W = wealth_series(r)
+    dd = drawdown_series(r)
+    plt.figure(); W.plot(title=f"Wealth — {label}"); plt.tight_layout(); plt.show()
+    plt.figure(); dd.plot(title=f"Drawdown — {label}"); plt.tight_layout(); plt.show()
+```
+
+```{python}
+# Rolling stats (S&P 500 example)
+label = "S&P 500 (SPY adj close)"
+if label in rets:
+    r = rets[label]
+    roll = rolling_stats(r, w_short=20, w_long=126)
+    plt.figure(); roll["mu_ann"].plot(title="S&P 500 — Rolling Annualized Mean (126d)"); plt.tight_layout(); plt.show()
+    plt.figure(); roll["vol_ann"].plot(title="S&P 500 — Rolling Annualized Vol (126d)"); plt.tight_layout(); plt.show()
+    plt.figure(); roll["rho1"].plot(title="S&P 500 — Rolling AC(1) (126d)"); plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: empirical-summary-export
+#| fig-cap: "Empirical summary exported to CSV"
+from scripts.reporting import compare_strategies, save_table
+rets_named = {k: v for k, v in rets.items() if k in ["S&P 500 (SPY adj close)", "US 7-10Y Treasury (IEF)", "Bitcoin (BTC-USD)"]}
+if len(rets_named) >= 1:
+    table = compare_strategies(rets_named)
+    display(table)
+    out_csv = save_table(table, "figures/empirical_summary.csv")
+    print("Saved summary CSV to:", out_csv)
+```    

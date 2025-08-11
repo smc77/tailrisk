@@ -1,0 +1,107 @@
+
+# Stop-Loss, Momentum, and Hedging
+
+## Demos
+
+```{python}
+#| label: hedge-examples
+#| fig-cap: "Illustrative hedging overlays (toy examples)"
+import numpy as np, pandas as pd, matplotlib.pyplot as plt
+from scripts.hedging import rolling_put_hedge, vix_overlay
+from scripts.simulations import simulate_ar1
+
+price = simulate_ar1(mu_ann=0.00, rho=0.2, sigma_ann=0.15, years=3, seed=123)
+rets = price.pct_change().dropna()
+
+hedged = rolling_put_hedge(price, moneyness=0.95, tenor_days=21, iv_annual=0.20).dropna()
+wealth_asset = (1+rets).cumprod()
+wealth_hedged = (1+hedged).cumprod()
+
+plt.figure(); wealth_asset.plot(label="Asset"); wealth_hedged.plot(label="Put-hedged")
+plt.title("Wealth: Asset vs Rolling 95% Put Hedge (toy)"); plt.legend(); plt.tight_layout(); plt.show()
+
+vix_proxy = -rets * 3.0
+trigger = rets.rolling(10).std().shift(1) > rets.rolling(60).std().shift(1)
+vix_ov = vix_overlay(rets, vix_proxy, trigger, hedge_weight=0.2).dropna()
+plt.figure(); (1+rets).cumprod().plot(label="Asset"); (1+vix_ov).cumprod().plot(label="VIX overlay")
+plt.title("Wealth: Asset vs VIX Overlay (toy)"); plt.legend(); plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: stoploss-with-costs
+#| fig-cap: "Stop-loss with transaction costs (toy example)"
+import numpy as np, pandas as pd, matplotlib.pyplot as plt
+from scripts.simulations import simulate_ar1
+from scripts.stoploss import apply_trailing_stop, apply_costs
+
+price = simulate_ar1(mu_ann=0.04, rho=0.1, sigma_ann=0.15, years=5, seed=7)
+rets = price.pct_change().dropna()
+
+sl_rets, pos, trade, tovr = apply_trailing_stop(price, stop_pct=0.05, reenter_above_peak=True)
+sl_costed = apply_costs(sl_rets, trade, tovr, fixed_bps=1.0, slippage_bps=2.0, spread_bps=5.0)
+
+wealth_bh = (1+rets).cumprod()
+wealth_sl = (1+sl_rets).cumprod()
+wealth_sl_cost = (1+sl_costed).cumprod()
+
+plt.figure(); wealth_bh.plot(label="Buy & Hold"); wealth_sl.plot(label="Stop 5% (no costs)"); wealth_sl_cost.plot(label="Stop 5% (with costs)")
+plt.title("Wealth with Stop-Loss and Transaction Costs (toy)"); plt.legend(); plt.tight_layout(); plt.show()
+```
+
+## Data-Driven Hedge Example (VIX proxy)
+
+```{python}
+import pandas as pd, numpy as np, matplotlib.pyplot as plt
+from scripts.empirical_data import load_prices_yf, pct_returns, wealth_series
+from scripts.hedging import vix_overlay
+from scripts.stoploss import apply_trailing_stop, apply_costs
+
+spy = load_prices_yf("SPY", start="2006-01-01")
+vix = load_prices_yf("^VIX", start="2006-01-01")
+
+r_spy = pct_returns(spy)
+r_vix = pct_returns(vix)
+
+vol_s = r_spy.rolling(20).std().shift(1)
+vol_l = r_spy.rolling(60).std().shift(1)
+trigger = (vol_s > vol_l).reindex_like(r_spy).fillna(False)
+
+sl_rets, pos, trade, tovr = apply_trailing_stop(spy, stop_pct=0.05, reenter_above_peak=True)
+sl_rets = sl_rets.reindex_like(r_spy).fillna(0.0)
+sl_costed = apply_costs(sl_rets, trade, tovr, fixed_bps=1.0, slippage_bps=2.0, spread_bps=5.0)
+
+combo = vix_overlay(sl_costed, r_vix, trigger, hedge_weight=0.20).dropna()
+
+W_bh = wealth_series(r_spy)
+W_sl = wealth_series(sl_costed)
+W_combo = wealth_series(combo)
+
+plt.figure(); W_bh.plot(label="Buy & Hold (SPY)"); W_sl.plot(label="Stop 5% (with costs)"); W_combo.plot(label="Stop 5% + 20% VIX overlay")
+plt.title("Wealth: SPY vs Stop-Loss vs Stop+VIX Overlay"); plt.legend(); plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: strategy-comparison
+#| fig-cap: "SPY: Buy&Hold vs Stop vs Stop+VIX — metrics and exports"
+from scripts.reporting import compare_strategies, save_table, save_figure
+from scripts.empirical_data import wealth_series
+
+comparables = {
+    "Buy & Hold (SPY)": r_spy,
+    "Stop 5% (with costs)": sl_costed,
+    "Stop 5% + 20% VIX overlay": combo
+}
+table = compare_strategies(comparables)
+display(table)
+
+csv_path = save_table(table, "figures/spy_strategy_comparison.csv")
+print("Saved strategy metrics to:", csv_path)
+
+plt.figure()
+wealth_series(r_spy).plot(label="Buy & Hold (SPY)")
+wealth_series(sl_costed).plot(label="Stop 5% (with costs)")
+wealth_series(combo).plot(label="Stop 5% + 20% VIX overlay")
+plt.title("Wealth: SPY vs Stop-Loss vs Stop+VIX Overlay"); plt.legend()
+png_path = save_figure("figures/spy_wealth_strategies.png")
+print("Saved figure to:", png_path)
+```

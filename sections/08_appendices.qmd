@@ -1,0 +1,3 @@
+# Appendices
+
+(Math notes, parameter grids, and full tables to be added.)

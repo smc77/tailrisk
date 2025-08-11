@@ -1,0 +1,48 @@
+
+# Simulation Framework
+
+We simulate AR(1) processes and evaluate Buy & Hold vs a 5% trailing stop, reporting CAGR, Vol, Sharpe, MDD with 95% confidence intervals (Monte Carlo).
+
+```{python}
+#| label: sim-ar1-rho-ci
+#| fig-cap: "AR(1), μ=0: Metrics vs ρ with 95% CI (example run)"
+import numpy as np, pandas as pd, matplotlib.pyplot as plt
+from scripts.simulations import simulate_ar1, trailing_stop_returns, metrics
+
+np.random.seed(1)
+years = 5
+rho_grid = np.linspace(-0.5, 0.5, 9)
+trials = 30
+sigma_ann = 0.05
+mu_ann = 0.0
+
+def run_ci(grid, vary="rho"):
+    rows = []
+    for val in grid:
+        bh, sl = [], []
+        for _ in range(trials):
+            price = simulate_ar1(mu_ann=mu_ann if vary=="rho" else val,
+                                 rho=val if vary=="rho" else 0.0,
+                                 sigma_ann=sigma_ann, years=years, seed=None)
+            bh_rets = price.pct_change().dropna()
+            sl_rets = trailing_stop_returns(price, stop_pct=0.05).iloc[1:]
+            bh.append(metrics(bh_rets)); sl.append(metrics(sl_rets))
+        for name, coll in [("BuyHold", bh), ("Stop5pct", sl)]:
+            dfm = pd.DataFrame(coll)
+            for m in ["CAGR","Vol","MDD","Sharpe"]:
+                mu = dfm[m].mean(); se = dfm[m].std(ddof=1)/np.sqrt(len(dfm))
+                rows.append({"Strategy":name, "x":val, "Metric":m,
+                             "Mean":mu, "Low":mu-1.96*se, "High":mu+1.96*se})
+    return pd.DataFrame(rows)
+
+df = run_ci(rho_grid, vary="rho")
+
+for m, ylab in [("CAGR","CAGR"),("Vol","Annualized Vol"),("MDD","Max Drawdown"),("Sharpe","Sharpe")]:
+    plt.figure()
+    for strat in ["BuyHold","Stop5pct"]:
+        sub = df[(df["Metric"]==m) & (df["Strategy"]==strat)].sort_values("x")
+        plt.plot(sub["x"], sub["Mean"], label=strat)
+        plt.fill_between(sub["x"], sub["Low"], sub["High"], alpha=0.2)
+    plt.xlabel("rho"); plt.ylabel(ylab); plt.title(f"{ylab} vs rho (μ=0)")
+    plt.legend(); plt.tight_layout(); plt.show()
+```

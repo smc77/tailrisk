@@ -1,0 +1,48 @@
+
+# Early Warning Signals
+
+We build features from price-only data (volatility ratio, drawdown slope, SMA deviation, and a lightweight LPPL risk score) and predict whether a large drawdown occurs within a forward horizon.
+
+```{python}
+#| label: ews-lppl-spy
+#| fig-cap: "SPY early-warning model with LPPL risk"
+import pandas as pd, numpy as np, matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score, roc_curve, classification_report
+from scripts.empirical_data import load_prices_yf
+from scripts.early_warnings import build_ews_features_from_prices, label_future_drawdown_from_prices
+
+spy = load_prices_yf("SPY", start="2000-01-01")
+X = build_ews_features_from_prices(spy)
+y = label_future_drawdown_from_prices(spy, horizon=60, threshold=-0.15)
+
+df = pd.concat([X, y], axis=1).dropna()
+split = int(len(df)*0.7)
+X_train, X_test = df.iloc[:split, :-1], df.iloc[split:, :-1]
+y_train, y_test = df.iloc[:split, -1], df.iloc[split:, -1]
+
+clf = LogisticRegression(max_iter=2000)
+clf.fit(X_train, y_train)
+proba = clf.predict_proba(X_test)[:,1]
+auc = roc_auc_score(y_test, proba)
+print(f"AUC: {auc:.3f}")
+
+# ROC
+fpr, tpr, _ = roc_curve(y_test, proba)
+plt.figure(); plt.plot(fpr, tpr, label=f"AUC={auc:.3f}"); plt.plot([0,1],[0,1],'k--')
+plt.xlabel("False Positive Rate"); plt.ylabel("True Positive Rate")
+plt.title("ROC — EWS with LPPL (SPY)"); plt.legend(); plt.tight_layout(); plt.show()
+
+# Feature importances (coef magnitude)
+imp = pd.Series(clf.coef_[0], index=X.columns).sort_values(key=np.abs, ascending=False)
+print("Top features:\n", imp.head(10))
+
+# Classification report at 0.5 threshold
+pred = (proba >= 0.5).astype(int)
+print(classification_report(y_test, pred, digits=3))
+
+# Export predictions
+out = pd.DataFrame({"proba": proba, "y_test": y_test.values}, index=y_test.index)
+out.to_csv("figures/ews_lppl_spy_predictions.csv")
+print("Saved predictions to figures/ews_lppl_spy_predictions.csv")
+```

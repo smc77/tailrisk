@@ -1,0 +1,108 @@
+
+# Definitions and Measurement
+
+## Why definitions matter
+Consistent drawdown metrics allow fair comparison across strategies and time periods. While **Maximum Drawdown (MDD)** is common, it captures only the single worst episode. Complementary measures like **Average Drawdown (AvgDD)**, **Time Under Water (TUW)**, **Ulcer Index (UI)**, and **Recovery Time** help characterize the *shape* and *persistence* of losses.
+
+## Key metrics & formulas
+
+### Maximum Drawdown (MDD)
+Definition: largest peak-to-trough loss.
+\[
+\mathrm{MDD} = \min_t\left(\frac{P_t}{\max_{\tau \le t} P_\tau}-1\right)
+\]
+
+### Average Drawdown (AvgDD)
+Definition: mean depth across all drawdowns.
+\[
+\mathrm{AvgDD} = \frac{1}{N_{\text{dd}}}\sum_{i=1}^{N_{\text{dd}}}\left(\frac{P_{\text{trough},i}}{P_{\text{peak},i}}-1\right)
+\]
+
+### Time Under Water (TUW)
+Definition: average duration from a peak to full recovery.
+\[
+\mathrm{TUW} = \frac{1}{N_{\text{dd}}}\sum_{i=1}^{N_{\text{dd}}}\left(t_{\text{rec},i}-t_{\text{peak},i}\right)
+\]
+
+### Ulcer Index (UI)
+Definition: RMS of percentage drawdowns (emphasizes persistent pain).
+\[
+\mathrm{UI} = \sqrt{\frac{1}{T}\sum_{t=1}^T \left(100\times \min\left(0,\frac{P_t}{\max_{\tau\le t}P_\tau}-1\right)\right)^2}
+\]
+
+### Recovery Time
+Definition: longest time from a peak to its recovery.
+\[
+\max_i \left(t_{\text{rec},i}-t_{\text{peak},i}\right)
+\]
+
+## SPY example (downloaded with yfinance)
+
+```{python}
+import pandas as pd, numpy as np, matplotlib.pyplot as plt
+import yfinance as yf
+from datetime import datetime
+
+spy = yf.download("SPY", start="2000-01-01", auto_adjust=True, progress=False)["Close"].asfreq("B").ffill()
+rets = spy.pct_change().dropna()
+wealth = (1+rets).cumprod()
+dd = wealth/wealth.cummax() - 1
+
+# Identify drawdown episodes for AvgDD and TUW
+peaks = wealth.cummax()
+in_dd = dd < 0
+# Episode IDs increment when leaving water and re-entering
+episode_id = ( (~in_dd).astype(int).diff() == -1 ).cumsum()
+episode_id = episode_id.where(in_dd, np.nan).ffill()
+
+draws = []
+if episode_id.notna().any():
+    for eid, grp in wealth.groupby(episode_id.dropna()):
+        # grp spans underwater segment including starting day after a peak
+        depth = (grp/grp.cummax() - 1).min()
+        # Recovery time: from peak to first recovery beyond that peak
+        start_idx = grp.index[0]
+        peak_level = peaks.loc[start_idx]
+        # find recovery
+        after = wealth.loc[start_idx:]
+        rec_idx = after[after >= peak_level].index.min()
+        if pd.isna(rec_idx):
+            rec_days = np.nan
+        else:
+            rec_days = (rec_idx - start_idx).days
+        draws.append((depth, rec_days))
+
+avgdd = float(np.nanmean([d for d,_ in draws])) if draws else np.nan
+tuw = float(np.nanmean([u for _,u in draws])) if draws else np.nan
+recovery_time = float(np.nanmax([u for _,u in draws])) if draws else np.nan
+
+mdd = float(dd.min())
+vol = float(rets.std()*np.sqrt(252))
+cagr = float((wealth.iloc[-1]/wealth.iloc[0])**(252/len(wealth))-1)
+ui = float(np.sqrt(( (100*np.minimum(0, dd)).pow(2) ).mean()))
+
+tbl = pd.DataFrame({
+    "CAGR":[cagr],
+    "Vol":[vol],
+    "Sharpe":[cagr/vol if vol else np.nan],
+    "MDD":[mdd],
+    "AvgDD":[avgdd],
+    "TUW_days":[tuw],
+    "RecoveryTime_days":[recovery_time],
+    "UlcerIndex":[ui]
+})
+display(tbl.round(4))
+tbl.to_csv("figures/spy_drawdown_metrics.csv", index=False)
+print("Saved to figures/spy_drawdown_metrics.csv")
+```
+
+```{python}
+# Quick plots
+plt.figure(); wealth.plot(title="SPY Wealth (2000-)"); plt.tight_layout(); plt.show()
+plt.figure(); dd.plot(title="SPY Drawdown (2000-)"); plt.tight_layout(); plt.show()
+```
+
+## Practical notes
+- MDD focuses on a single tail event; AvgDD and UI provide stability for optimization.
+- TUW and Recovery Time reflect investor experience and liquidity needs.
+- In stop-loss testing, AvgDD and TUW often show larger improvements than MDD.

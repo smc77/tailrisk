@@ -1,0 +1,16 @@
+
+# Literature Review
+
+## Drawdown theory and measures
+- Brownian/diffusion results (@MagdonIsmail2004_mdd_brownian; @HadjiliadisVecer_drawdown_diffusions).
+- CED and CDaR risk frameworks (@GoldbergMahmoud2014_ced; @Chekhlov2005_cdar).
+
+## Predicting drawdowns and crashes
+- LPPL and critiques (@sornette2003_whycrash; @johansen2000_lppl; @filimonov2013_lppl).
+- Correlation eigenvalue spikes (@Conlon2010_drawdown_correlation).
+- Regime-switching warnings (@LoRemorov2017_stoploss_regimes).
+- Reflexivity (Soros) and multifractals (Mandelbrot).
+
+## Stop-Loss rules and momentum
+- When do stops help? (@KaminskiLo2014_stoploss)
+- Serial correlation, regime persistence, and costs (@LoRemorov2017_stoploss_regimes).
