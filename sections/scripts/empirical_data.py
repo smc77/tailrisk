@@ -7,10 +7,11 @@ def load_prices_yf(ticker: str, start="1990-01-01"):
     df = yf.download(ticker, start=start, auto_adjust=True, progress=False)
     if df is None or df.empty:
         raise RuntimeError(f"Download failed or empty for {ticker}")
-    s = df["Close"].rename(ticker)
+    s = df["Close"]#.rename(ticker)
+    print(s.head())
     s.index = pd.to_datetime(s.index)
     s = s.asfreq("B").ffill()
-    return s
+    return s.squeeze()
 
 def pct_returns(prices: pd.Series) -> pd.Series:
     return prices.pct_change().dropna()

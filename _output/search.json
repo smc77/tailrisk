@@ -1,0 +1,162 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Drawdown Risk: Measurement, Prediction, and Mitigation",
+    "section": "",
+    "text": "Drawdowns — sustained declines from prior peaks — are a central measure of investment risk. They capture not only the size of losses but also their duration and the psychological and liquidity pressures they impose on market participants. While volatility remains the industry’s standard risk metric, drawdowns often determine actual investor behavior, influencing capital withdrawals, mandate breaches, and risk appetite.\nThis study examines drawdown risk through three complementary lenses:\n\nMechanics and measurement — formal definitions of maximum drawdown (MDD), average drawdown, and time under water, along with their statistical properties under different return-generating processes.\nPrediction and early warnings — the potential to forecast elevated drawdown risk using tools from both quantitative finance (e.g., correlation spikes, regime-switching probabilities, LPPL bubble detection) and market theory (e.g., Soros’s reflexivity, Mandelbrot’s multifractal markets).\nMitigation strategies — evaluating the performance of stop-loss rules, momentum-based overlays, and explicit hedges such as VIX futures and protective options.\n\nA central theme is the connection between stop-loss rules and momentum trading. A trailing stop that re-enters only above the prior peak inherently captures part of a time-series momentum strategy: it cuts risk when recent returns are negative and adds exposure when trend resumes. This link suggests that the efficacy of stop-losses will vary with the degree of return autocorrelation and the persistence of regimes — a hypothesis we test both in simulations and on historical data.\nStop-losses are not the only path to drawdown control. We compare them with explicit hedging strategies, including: - Volatility hedges: buying VIX futures or calls when early-warning indicators trigger. - Tail hedges: purchasing out-of-the-money index puts or put spreads to cap downside. - Dynamic allocation shifts: moving capital to low-volatility or uncorrelated assets in high-risk regimes.\nOur empirical analysis spans the S&P 500, US 10-year Treasury notes, and Bitcoin — assets with distinct volatility, correlation, and drawdown profiles. Simulation studies use AR(1), regime-switching, and stochastic volatility models to explore a wide parameter space and quantify expected performance differences across strategies.\nKey takeaways (preview): - Stop-loss effectiveness is conditional: they tend to improve risk-adjusted returns when returns exhibit positive serial correlation and regimes persist, but can hurt performance in mean-reverting markets. - Hedges offer complementary protection: while they often cost carry in normal markets, they can sharply reduce maximum drawdown and time under water when timed with credible early-warning signals. - Integrated approaches dominate: blending signal-driven stop-loss logic with targeted hedging yields better drawdown control per unit of performance drag than either technique alone.\nThis report proceeds from measurement to prediction to mitigation, grounding each step in both simulation and real-world data. By the conclusion, we present a framework for active drawdown management that integrates statistical signals, behavioral insights, and cost-aware strategy design.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Executive Summary</span>"
+    ]
+  },
+  {
+    "objectID": "sections/01_definitions.html",
+    "href": "sections/01_definitions.html",
+    "title": "2  Definitions and Measurement",
+    "section": "",
+    "text": "2.1 Why definitions matter\nConsistent drawdown metrics allow fair comparison across strategies and time periods. While Maximum Drawdown (MDD) is common, it captures only the single worst episode. Complementary measures like Average Drawdown (AvgDD), Time Under Water (TUW), Ulcer Index (UI), and Recovery Time help characterize the shape and persistence of losses.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Definitions and Measurement</span>"
+    ]
+  },
+  {
+    "objectID": "sections/01_definitions.html#key-metrics-formulas",
+    "href": "sections/01_definitions.html#key-metrics-formulas",
+    "title": "2  Definitions and Measurement",
+    "section": "2.2 Key metrics & formulas",
+    "text": "2.2 Key metrics & formulas\n\n2.2.1 Maximum Drawdown (MDD)\nDefinition: largest peak-to-trough loss.\n\\[\n\\mathrm{MDD} = \\min_t\\left(\\frac{P_t}{\\max_{\\tau \\le t} P_\\tau}-1\\right)\n\\]\n\n\n2.2.2 Average Drawdown (AvgDD)\nDefinition: mean depth across all drawdowns.\n\\[\n\\mathrm{AvgDD} = \\frac{1}{N_{\\text{dd}}}\\sum_{i=1}^{N_{\\text{dd}}}\\left(\\frac{P_{\\text{trough},i}}{P_{\\text{peak},i}}-1\\right)\n\\]\n\n\n2.2.3 Time Under Water (TUW)\nDefinition: average duration from a peak to full recovery.\n\\[\n\\mathrm{TUW} = \\frac{1}{N_{\\text{dd}}}\\sum_{i=1}^{N_{\\text{dd}}}\\left(t_{\\text{rec},i}-t_{\\text{peak},i}\\right)\n\\]\n\n\n2.2.4 Ulcer Index (UI)\nDefinition: RMS of percentage drawdowns (emphasizes persistent pain).\n\\[\n\\mathrm{UI} = \\sqrt{\\frac{1}{T}\\sum_{t=1}^T \\left(100\\times \\min\\left(0,\\frac{P_t}{\\max_{\\tau\\le t}P_\\tau}-1\\right)\\right)^2}\n\\]\n\n\n2.2.5 Recovery Time\nDefinition: longest time from a peak to its recovery.\n\\[\n\\max_i \\left(t_{\\text{rec},i}-t_{\\text{peak},i}\\right)\n\\]",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Definitions and Measurement</span>"
+    ]
+  },
+  {
+    "objectID": "sections/01_definitions.html#spy-example-downloaded-with-yfinance",
+    "href": "sections/01_definitions.html#spy-example-downloaded-with-yfinance",
+    "title": "2  Definitions and Measurement",
+    "section": "2.3 SPY example (downloaded with yfinance)",
+    "text": "2.3 SPY example (downloaded with yfinance)\n\nimport pandas as pd, numpy as np, matplotlib.pyplot as plt\nimport yfinance as yf\nfrom datetime import datetime\n\nspy = yf.download(\"SPY\", start=\"2000-01-01\", auto_adjust=True, progress=False)[\"Close\"].squeeze().asfreq(\"B\").ffill()\nrets = spy.pct_change().dropna()\nwealth = (1+rets).cumprod()\ndd = wealth/wealth.cummax() - 1\n\n# Identify drawdown episodes for AvgDD and TUW\npeaks = wealth.cummax()\nin_dd = dd &lt; 0\n# Episode IDs increment when leaving water and re-entering\nepisode_id = ( (~in_dd).astype(int).diff() == -1 ).cumsum()\nepisode_id = episode_id.where(in_dd, np.nan).ffill()\n\ndraws = []\nif episode_id.notna().any():\n    for eid, grp in wealth.groupby(episode_id.dropna()):\n        # grp spans underwater segment including starting day after a peak\n        depth = (grp/grp.cummax() - 1).min()\n        # Recovery time: from peak to first recovery beyond that peak\n        start_idx = grp.index[0]\n        peak_level = peaks.loc[start_idx]\n        # find recovery\n        after = wealth.loc[start_idx:]\n        rec_idx = after[after &gt;= peak_level].index.min()\n        if pd.isna(rec_idx):\n            rec_days = np.nan\n        else:\n            rec_days = (rec_idx - start_idx).days\n        draws.append((depth, rec_days))\n\navgdd = float(np.nanmean([d for d,_ in draws])) if draws else np.nan\ntuw = float(np.nanmean([u for _,u in draws])) if draws else np.nan\nrecovery_time = float(np.nanmax([u for _,u in draws])) if draws else np.nan\n\nmdd = float(dd.min())\nvol = float(rets.std()*np.sqrt(252))\ncagr = float((wealth.iloc[-1]/wealth.iloc[0])**(252/len(wealth))-1)\nui = float(np.sqrt(( (100*np.minimum(0, dd)).pow(2) ).mean()))\n\ntbl = pd.DataFrame({\n    \"CAGR\":[cagr],\n    \"Vol\":[vol],\n    \"Sharpe\":[cagr/vol if vol else np.nan],\n    \"MDD\":[mdd],\n    \"AvgDD\":[avgdd],\n    \"TUW_days\":[tuw],\n    \"RecoveryTime_days\":[recovery_time],\n    \"UlcerIndex\":[ui]\n})\ndisplay(tbl.round(4))\nimport os\nos.makedirs(\"figures\", exist_ok=True)\ntbl.to_csv(\"figures/spy_drawdown_metrics.csv\", index=False)\nprint(\"Saved to figures/spy_drawdown_metrics.csv\")\n\n\n\n\n\n\n\n\nCAGR\nVol\nSharpe\nMDD\nAvgDD\nTUW_days\nRecoveryTime_days\nUlcerIndex\n\n\n\n\n0\n0.0772\n0.1914\n0.4035\n-0.5519\n-0.017\n31.1618\n2404.0\n16.4171\n\n\n\n\n\n\n\nSaved to figures/spy_drawdown_metrics.csv\n\n\n\n# Quick plots\nplt.figure(); wealth.plot(title=\"SPY Wealth (2000-)\"); plt.tight_layout(); plt.show()\nplt.figure(); dd.plot(title=\"SPY Drawdown (2000-)\"); plt.tight_layout(); plt.show()",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Definitions and Measurement</span>"
+    ]
+  },
+  {
+    "objectID": "sections/01_definitions.html#practical-notes",
+    "href": "sections/01_definitions.html#practical-notes",
+    "title": "2  Definitions and Measurement",
+    "section": "2.4 Practical notes",
+    "text": "2.4 Practical notes\n\nMDD focuses on a single tail event; AvgDD and UI provide stability for optimization.\nTUW and Recovery Time reflect investor experience and liquidity needs.\nIn stop-loss testing, AvgDD and TUW often show larger improvements than MDD.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Definitions and Measurement</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html",
+    "href": "sections/02_literature_review.html",
+    "title": "3  Literature Review",
+    "section": "",
+    "text": "3.1 Drawdown theory and measures",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#drawdown-theory-and-measures",
+    "href": "sections/02_literature_review.html#drawdown-theory-and-measures",
+    "title": "3  Literature Review",
+    "section": "",
+    "text": "Brownian/diffusion results (Magdon-Ismail et al. (2004); Hadjiliadis and Vecer (2006)).\nCED and CDaR risk frameworks (Goldberg and Mahmoud (2014); Chekhlov, Uryasev, and Zabarankin (2005)).",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#predicting-drawdowns-and-crashes",
+    "href": "sections/02_literature_review.html#predicting-drawdowns-and-crashes",
+    "title": "3  Literature Review",
+    "section": "3.2 Predicting drawdowns and crashes",
+    "text": "3.2 Predicting drawdowns and crashes\n\nLPPL and critiques (Sornette (2003); Johansen, Ledoit, and Sornette (2000); Filimonov and Sornette (2013)).\nCorrelation eigenvalue spikes (Conlon, Ruskin, and Crane (2010)).\nRegime-switching warnings (Lo and Remorov (2017)).\nReflexivity (Soros) and multifractals (Mandelbrot).",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#stop-loss-rules-and-momentum",
+    "href": "sections/02_literature_review.html#stop-loss-rules-and-momentum",
+    "title": "3  Literature Review",
+    "section": "3.3 Stop-Loss rules and momentum",
+    "text": "3.3 Stop-Loss rules and momentum\n\nWhen do stops help? (Kaminski and Lo (2014))\nSerial correlation, regime persistence, and costs (Lo and Remorov (2017)).\n\n\n\n\n\nChekhlov, Alex, Stanislav Uryasev, and Roman Zabarankin. 2005. “Drawdown Measure in Portfolio Optimization.” In International Conference on Computational Science, 294–301. Springer. https://doi.org/10.1007/11428831_35.\n\n\nConlon, Thomas, Heather J. Ruskin, and Martin Crane. 2010. “Cross-Correlation Dynamics in Financial Markets.” Physica A: Statistical Mechanics and Its Applications 389 (21): 5228–39. https://doi.org/10.1016/j.physa.2010.05.050.\n\n\nFilimonov, Vladimir, and Didier Sornette. 2013. “Apparent Criticality and Calibration Issues in the Log-Periodic Power Law Model.” Quantitative Finance 13 (11): 1701–20. https://doi.org/10.1080/14697688.2013.802144.\n\n\nGoldberg, Lisa R., and Ola Mahmoud. 2014. “Drawdown: From Practice to Theory and Back Again.” Mathematics and Financial Economics 8 (3): 211–49. https://doi.org/10.1007/s11579-014-0119-8.\n\n\nHadjiliadis, Olympia, and Jan Vecer. 2006. “Drawdowns Preceding Rallies in Diffusion Models.” Quantitative Finance 6 (5): 403–9. https://doi.org/10.1080/14697680600815604.\n\n\nJohansen, Anders, Olivier Ledoit, and Didier Sornette. 2000. “Crashes as Critical Points.” International Journal of Theoretical and Applied Finance 3 (2): 219–55. https://doi.org/10.1142/S0219024900000115.\n\n\nKaminski, Kathryn M., and Andrew W. Lo. 2014. “When Do Stop-Loss Rules Stop Losses?” Journal of Portfolio Management 40 (2): 45–61. https://doi.org/10.3905/jpm.2014.40.2.045.\n\n\nLo, Andrew W., and Alexander Remorov. 2017. “Stop‐loss Strategies with Serial Correlation, Regime Switching, and Transaction Costs.” Journal of Financial Markets 34: 1–15. https://doi.org/10.1016/j.finmar.2017.02.003.\n\n\nMagdon-Ismail, Malik, Amir F. Atiya, Amit Pratap, and Yaser S. Abu-Mostafa. 2004. “Maximum Drawdown for Brownian Motion.” Journal of Applied Probability 41 (1): 147–61. https://doi.org/10.1239/jap/1077134663.\n\n\nSornette, Didier. 2003. Why Stock Markets Crash: Critical Events in Complex Financial Systems. Princeton, NJ: Princeton University Press.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/03_simulation_framework.html",
+    "href": "sections/03_simulation_framework.html",
+    "title": "4  Simulation Framework",
+    "section": "",
+    "text": "We simulate AR(1) processes and evaluate Buy & Hold vs a 5% trailing stop, reporting CAGR, Vol, Sharpe, MDD with 95% confidence intervals (Monte Carlo).\n\nimport numpy as np, pandas as pd, matplotlib.pyplot as plt\nfrom scripts.simulations import simulate_ar1, trailing_stop_returns, metrics\n\nnp.random.seed(1)\nyears = 5\nrho_grid = np.linspace(-0.5, 0.5, 9)\ntrials = 30\nsigma_ann = 0.05\nmu_ann = 0.0\n\ndef run_ci(grid, vary=\"rho\"):\n    rows = []\n    for val in grid:\n        bh, sl = [], []\n        for _ in range(trials):\n            price = simulate_ar1(mu_ann=mu_ann if vary==\"rho\" else val,\n                                 rho=val if vary==\"rho\" else 0.0,\n                                 sigma_ann=sigma_ann, years=years, seed=None)\n            bh_rets = price.pct_change().dropna()\n            sl_rets = trailing_stop_returns(price, stop_pct=0.05).iloc[1:]\n            bh.append(metrics(bh_rets)); sl.append(metrics(sl_rets))\n        for name, coll in [(\"BuyHold\", bh), (\"Stop5pct\", sl)]:\n            dfm = pd.DataFrame(coll)\n            for m in [\"CAGR\",\"Vol\",\"MDD\",\"Sharpe\"]:\n                mu = dfm[m].mean(); se = dfm[m].std(ddof=1)/np.sqrt(len(dfm))\n                rows.append({\"Strategy\":name, \"x\":val, \"Metric\":m,\n                             \"Mean\":mu, \"Low\":mu-1.96*se, \"High\":mu+1.96*se})\n    return pd.DataFrame(rows)\n\ndf = run_ci(rho_grid, vary=\"rho\")\n\nfor m, ylab in [(\"CAGR\",\"CAGR\"),(\"Vol\",\"Annualized Vol\"),(\"MDD\",\"Max Drawdown\"),(\"Sharpe\",\"Sharpe\")]:\n    plt.figure()\n    for strat in [\"BuyHold\",\"Stop5pct\"]:\n        sub = df[(df[\"Metric\"]==m) & (df[\"Strategy\"]==strat)].sort_values(\"x\")\n        plt.plot(sub[\"x\"], sub[\"Mean\"], label=strat)\n        plt.fill_between(sub[\"x\"], sub[\"Low\"], sub[\"High\"], alpha=0.2)\n    plt.xlabel(\"rho\"); plt.ylabel(ylab); plt.title(f\"{ylab} vs rho (μ=0)\")\n    plt.legend(); plt.tight_layout(); plt.show()\n\n\n\n\nAR(1), μ=0: Metrics vs ρ with 95% CI (example run)",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Simulation Framework</span>"
+    ]
+  },
+  {
+    "objectID": "sections/04_empirical_measurement.html",
+    "href": "sections/04_empirical_measurement.html",
+    "title": "5  Empirical Measurement",
+    "section": "",
+    "text": "We fetch daily data with yfinance and compute: returns, wealth & drawdowns, rolling μ/σ/ρ, and a summary table for SPY, IEF, and BTC.\n\nimport pandas as pd, numpy as np, matplotlib.pyplot as plt\nfrom scripts.empirical_data import load_prices_yf, pct_returns, wealth_series, drawdown_series, rolling_stats, summary_metrics\n\ntickers = {\n    \"S&P 500 (SPY adj close)\": \"SPY\",\n    \"US 7-10Y Treasury (IEF)\": \"IEF\",\n    \"Bitcoin (BTC-USD)\": \"BTC-USD\",\n    \"VIX Index (proxy only)\": \"^VIX\"\n}\n\nprices = {}\nfor label, t in tickers.items():\n    try:\n        prices[label] = load_prices_yf(t, start=\"2003-01-01\")\n    except Exception as e:\n        print(f\"Skipping {label}: {e}\")\n\nrets = {k: pct_returns(v) for k, v in prices.items() if v is not None}\nsumm = {k: summary_metrics(r) for k, r in rets.items() if k != \"VIX Index (proxy only)\"}\npd.DataFrame(summ).T\n\nTicker            SPY\nDate                 \n2003-01-02  59.986362\n2003-01-03  60.170807\n2003-01-06  61.231281\n2003-01-07  61.079792\n2003-01-08  60.197132\nTicker            IEF\nDate                 \n2003-01-02  44.324108\n2003-01-03  44.397266\n2003-01-06  44.287514\n2003-01-07  44.428646\n2003-01-08  44.533195\nTicker         BTC-USD\nDate                  \n2014-09-17  457.334015\n2014-09-18  424.440002\n2014-09-19  394.795990\n2014-09-20  408.903992\n2014-09-21  398.821014\nTicker           ^VIX\nDate                 \n2003-01-02  25.389999\n2003-01-03  24.680000\n2003-01-06  24.910000\n2003-01-07  25.129999\n2003-01-08  25.530001\n\n\n\n\n\n\n\n\n\nCAGR\nVol\nSharpe\nMDD\nAvgDD\nTUW_days\n\n\n\n\nS&P 500 (SPY adj close)\n0.106012\n0.184301\n0.575212\n-0.551894\n-0.078635\n5177.0\n\n\nUS 7-10Y Treasury (IEF)\n0.033232\n0.067210\n0.494447\n-0.239248\n-0.054489\n5596.0\n\n\nBitcoin (BTC-USD)\n0.647683\n0.663650\n0.975942\n-0.830363\n-0.370045\n2695.0\n\n\n\n\n\n\n\n\n# Wealth and drawdowns\nfor label in [\"S&P 500 (SPY adj close)\", \"US 7-10Y Treasury (IEF)\", \"Bitcoin (BTC-USD)\"]:\n    if label not in rets: \n        continue\n    r = rets[label]\n    W = wealth_series(r)\n    dd = drawdown_series(r)\n    plt.figure(); W.plot(title=f\"Wealth — {label}\"); plt.tight_layout(); plt.show()\n    plt.figure(); dd.plot(title=f\"Drawdown — {label}\"); plt.tight_layout(); plt.show()\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n# Rolling stats (S&P 500 example)\nlabel = \"S&P 500 (SPY adj close)\"\nif label in rets:\n    r = rets[label]\n    roll = rolling_stats(r, w_short=20, w_long=126)\n    plt.figure(); roll[\"mu_ann\"].plot(title=\"S&P 500 — Rolling Annualized Mean (126d)\"); plt.tight_layout(); plt.show()\n    plt.figure(); roll[\"vol_ann\"].plot(title=\"S&P 500 — Rolling Annualized Vol (126d)\"); plt.tight_layout(); plt.show()\n    plt.figure(); roll[\"rho1\"].plot(title=\"S&P 500 — Rolling AC(1) (126d)\"); plt.tight_layout(); plt.show()\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nfrom scripts.reporting import compare_strategies, save_table\nrets_named = {k: v for k, v in rets.items() if k in [\"S&P 500 (SPY adj close)\", \"US 7-10Y Treasury (IEF)\", \"Bitcoin (BTC-USD)\"]}\nif len(rets_named) &gt;= 1:\n    table = compare_strategies(rets_named)\n    display(table)\n    out_csv = save_table(table, \"figures/empirical_summary.csv\")\n    print(\"Saved summary CSV to:\", out_csv)\n\n\n\n\n\n\n\n\nCAGR\nVol\nSharpe\nMDD\nAvgDD\nTUW_days\n\n\nStrategy\n\n\n\n\n\n\n\n\n\n\nS&P 500 (SPY adj close)\n0.106012\n0.184301\n0.575212\n-0.551894\n-0.078635\n5177\n\n\nUS 7-10Y Treasury (IEF)\n0.033232\n0.067210\n0.494447\n-0.239248\n-0.054489\n5596\n\n\nBitcoin (BTC-USD)\n0.647683\n0.663650\n0.975942\n-0.830363\n-0.370045\n2695\n\n\n\n\n\nEmpirical summary exported to CSV\n\n\nSaved summary CSV to: figures/empirical_summary.csv",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Empirical Measurement</span>"
+    ]
+  },
+  {
+    "objectID": "sections/05_early_warnings.html",
+    "href": "sections/05_early_warnings.html",
+    "title": "6  Early Warning Signals",
+    "section": "",
+    "text": "We build features from price-only data (volatility ratio, drawdown slope, SMA deviation, and a lightweight LPPL risk score) and predict whether a large drawdown occurs within a forward horizon.\n\nimport pandas as pd, numpy as np, matplotlib.pyplot as plt\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score, roc_curve, classification_report\nfrom scripts.empirical_data import load_prices_yf\nfrom scripts.early_warnings import build_ews_features_from_prices, label_future_drawdown_from_prices\n\nspy = load_prices_yf(\"SPY\", start=\"2000-01-01\")\nX = build_ews_features_from_prices(spy)\ny = label_future_drawdown_from_prices(spy, horizon=60, threshold=-0.15)\n\ndf = pd.concat([X, y], axis=1).dropna()\nsplit = int(len(df)*0.7)\nX_train, X_test = df.iloc[:split, :-1], df.iloc[split:, :-1]\ny_train, y_test = df.iloc[:split, -1], df.iloc[split:, -1]\n\nclf = LogisticRegression(max_iter=2000)\nclf.fit(X_train, y_train)\nproba = clf.predict_proba(X_test)[:,1]\nauc = roc_auc_score(y_test, proba)\nprint(f\"AUC: {auc:.3f}\")\n\n# ROC\nfpr, tpr, _ = roc_curve(y_test, proba)\nplt.figure(); plt.plot(fpr, tpr, label=f\"AUC={auc:.3f}\"); plt.plot([0,1],[0,1],'k--')\nplt.xlabel(\"False Positive Rate\"); plt.ylabel(\"True Positive Rate\")\nplt.title(\"ROC — EWS with LPPL (SPY)\"); plt.legend(); plt.tight_layout(); plt.show()\n\n# Feature importances (coef magnitude)\nimp = pd.Series(clf.coef_[0], index=X.columns).sort_values(key=np.abs, ascending=False)\nprint(\"Top features:\\n\", imp.head(10))\n\n# Classification report at 0.5 threshold\npred = (proba &gt;= 0.5).astype(int)\nprint(classification_report(y_test, pred, digits=3))\n\n# Export predictions\nout = pd.DataFrame({\"proba\": proba, \"y_test\": y_test.values}, index=y_test.index)\nout.to_csv(\"figures/ews_lppl_spy_predictions.csv\")\nprint(\"Saved predictions to figures/ews_lppl_spy_predictions.csv\")\n\nTicker            SPY\nDate                 \n2000-01-03  92.142509\n2000-01-04  88.539200\n2000-01-05  88.697571\n2000-01-06  87.272095\n2000-01-07  92.340523\nAUC: 0.636\n\n\n\n\n\nSPY early-warning model with LPPL risk\n\n\n\n\nTop features:\n sma_dev     -10.152553\nvol_ratio     0.398983\nlppl_risk    -0.086134\ndd_slope      0.080557\ndtype: float64\n              precision    recall  f1-score   support\n\n         0.0      0.886     0.997     0.938      1742\n         1.0      0.143     0.004     0.009       225\n\n    accuracy                          0.883      1967\n   macro avg      0.514     0.501     0.473      1967\nweighted avg      0.801     0.883     0.832      1967\n\nSaved predictions to figures/ews_lppl_spy_predictions.csv",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Early Warning Signals</span>"
+    ]
+  },
+  {
+    "objectID": "sections/06_stoploss_and_hedging.html",
+    "href": "sections/06_stoploss_and_hedging.html",
+    "title": "7  Stop-Loss, Momentum, and Hedging",
+    "section": "",
+    "text": "7.1 Demos\nimport numpy as np, pandas as pd, matplotlib.pyplot as plt\nfrom scripts.hedging import rolling_put_hedge, vix_overlay\nfrom scripts.simulations import simulate_ar1\n\nprice = simulate_ar1(mu_ann=0.00, rho=0.2, sigma_ann=0.15, years=3, seed=123)\nrets = price.pct_change().dropna()\n\nhedged, roll_flags = rolling_put_hedge(price, moneyness=0.95, tenor_days=21, iv_annual=0.20)\n\nwealth_asset = (1+rets).cumprod()\nwealth_hedged = (1+hedged).cumprod()\n\nplt.figure(); wealth_asset.plot(label=\"Asset\"); wealth_hedged.plot(label=\"Put-hedged\")\nplt.title(\"Wealth: Asset vs Rolling 95% Put Hedge (toy)\"); plt.legend(); plt.tight_layout(); plt.show()\n\nvix_proxy = -rets * 3.0\ntrigger = rets.rolling(10).std().shift(1) &gt; rets.rolling(60).std().shift(1)\nvix_ov = vix_overlay(rets, vix_proxy, trigger, hedge_weight=0.2).dropna()\nplt.figure(); (1+rets).cumprod().plot(label=\"Asset\"); (1+vix_ov).cumprod().plot(label=\"VIX overlay\")\nplt.title(\"Wealth: Asset vs VIX Overlay (toy)\"); plt.legend(); plt.tight_layout(); plt.show()\n\n\n\n\nIllustrative hedging overlays (toy examples)\nimport numpy as np, pandas as pd, matplotlib.pyplot as plt\nfrom scripts.simulations import simulate_ar1\nfrom scripts.stoploss import apply_trailing_stop, apply_costs\n\nprice = simulate_ar1(mu_ann=0.04, rho=0.1, sigma_ann=0.15, years=5, seed=7)\nrets = price.pct_change().dropna()\n\nsl_rets, pos, trade, tovr = apply_trailing_stop(price, stop_pct=0.05, reenter_above_peak=True)\nsl_costed = apply_costs(sl_rets, trade, tovr, fixed_bps=1.0, slippage_bps=2.0, spread_bps=5.0)\n\nwealth_bh = (1+rets).cumprod()\nwealth_sl = (1+sl_rets).cumprod()\nwealth_sl_cost = (1+sl_costed).cumprod()\n\nplt.figure(); wealth_bh.plot(label=\"Buy & Hold\"); wealth_sl.plot(label=\"Stop 5% (no costs)\"); wealth_sl_cost.plot(label=\"Stop 5% (with costs)\")\nplt.title(\"Wealth with Stop-Loss and Transaction Costs (toy)\"); plt.legend(); plt.tight_layout(); plt.show()\n\n\n\n\nStop-loss with transaction costs (toy example)",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Stop-Loss, Momentum, and Hedging</span>"
+    ]
+  },
+  {
+    "objectID": "sections/06_stoploss_and_hedging.html#data-driven-hedge-example-vix-proxy",
+    "href": "sections/06_stoploss_and_hedging.html#data-driven-hedge-example-vix-proxy",
+    "title": "7  Stop-Loss, Momentum, and Hedging",
+    "section": "7.2 Data-Driven Hedge Example (VIX proxy)",
+    "text": "7.2 Data-Driven Hedge Example (VIX proxy)\n\nimport pandas as pd, numpy as np, matplotlib.pyplot as plt\nfrom scripts.empirical_data import load_prices_yf, pct_returns, wealth_series\nfrom scripts.hedging import vix_overlay\nfrom scripts.stoploss import apply_trailing_stop, apply_costs\n\nspy = load_prices_yf(\"SPY\", start=\"2006-01-01\")\nvix = load_prices_yf(\"^VIX\", start=\"2006-01-01\")\n\nr_spy = pct_returns(spy)\nr_vix = pct_returns(vix)\n\nvol_s = r_spy.rolling(20).std().shift(1)\nvol_l = r_spy.rolling(60).std().shift(1)\ntrigger = (vol_s &gt; vol_l).reindex_like(r_spy).fillna(False)\n\nsl_rets, pos, trade, tovr = apply_trailing_stop(spy, stop_pct=0.05, reenter_above_peak=True)\nsl_rets = sl_rets.reindex_like(r_spy).fillna(0.0)\nsl_costed = apply_costs(sl_rets, trade, tovr, fixed_bps=1.0, slippage_bps=2.0, spread_bps=5.0)\n\ncombo = vix_overlay(sl_costed, r_vix, trigger, hedge_weight=0.20).dropna()\n\nW_bh = wealth_series(r_spy)\nW_sl = wealth_series(sl_costed)\nW_combo = wealth_series(combo)\n\nplt.figure(); W_bh.plot(label=\"Buy & Hold (SPY)\"); W_sl.plot(label=\"Stop 5% (with costs)\"); W_combo.plot(label=\"Stop 5% + 20% VIX overlay\")\nplt.title(\"Wealth: SPY vs Stop-Loss vs Stop+VIX Overlay\"); plt.legend(); plt.tight_layout(); plt.show()\n\nTicker            SPY\nDate                 \n2006-01-03  87.964905\n2006-01-04  88.381485\n2006-01-05  88.437012\n2006-01-06  89.172966\n2006-01-09  89.402061\nTicker       ^VIX\nDate             \n2006-01-03  11.14\n2006-01-04  11.37\n2006-01-05  11.31\n2006-01-06  11.00\n2006-01-09  11.13\n\n\n\n\n\n\n\n\n\n\nfrom scripts.reporting import compare_strategies, save_table, save_figure\nfrom scripts.empirical_data import wealth_series\n\ncomparables = {\n    \"Buy & Hold (SPY)\": r_spy,\n    \"Stop 5% (with costs)\": sl_costed,\n    \"Stop 5% + 20% VIX overlay\": combo\n}\ntable = compare_strategies(comparables)\ndisplay(table)\n\ncsv_path = save_table(table, \"figures/spy_strategy_comparison.csv\")\nprint(\"Saved strategy metrics to:\", csv_path)\n\nplt.figure()\nwealth_series(r_spy).plot(label=\"Buy & Hold (SPY)\")\nwealth_series(sl_costed).plot(label=\"Stop 5% (with costs)\")\nwealth_series(combo).plot(label=\"Stop 5% + 20% VIX overlay\")\nplt.title(\"Wealth: SPY vs Stop-Loss vs Stop+VIX Overlay\"); plt.legend()\npng_path = save_figure(\"figures/spy_wealth_strategies.png\")\nprint(\"Saved figure to:\", png_path)\n\n\n\n\n\n\n\n\nCAGR\nVol\nSharpe\nMDD\nAvgDD\nTUW_days\n\n\nStrategy\n\n\n\n\n\n\n\n\n\n\nBuy & Hold (SPY)\n0.102128\n0.191638\n0.532921\n-0.551895\n-0.086492\n4492\n\n\nStop 5% (with costs)\n0.058013\n0.072148\n0.804086\n-0.087379\n-0.039357\n4738\n\n\nStop 5% + 20% VIX overlay\n0.025733\n0.179518\n0.143342\n-0.445388\n-0.168309\n5034\n\n\n\n\n\nSPY: Buy&Hold vs Stop vs Stop+VIX — metrics and exports\n\n\nSaved strategy metrics to: figures/spy_strategy_comparison.csv\nSaved figure to: figures/spy_wealth_strategies.png",
+    "crumbs": [
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Stop-Loss, Momentum, and Hedging</span>"
+    ]
+  },
+  {
+    "objectID": "sections/07_results_synthesis.html",
+    "href": "sections/07_results_synthesis.html",
+    "title": "8  Results Synthesis",
+    "section": "",
+    "text": "(Write-up and comparison tables to be added.)",
+    "crumbs": [
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Results Synthesis</span>"
+    ]
+  },
+  {
+    "objectID": "sections/08_appendices.html",
+    "href": "sections/08_appendices.html",
+    "title": "9  Appendices",
+    "section": "",
+    "text": "(Math notes, parameter grids, and full tables to be added.)",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Appendices</span>"
+    ]
+  }
+]

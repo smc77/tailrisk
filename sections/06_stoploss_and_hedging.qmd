@@ -13,7 +13,8 @@ from scripts.simulations import simulate_ar1
 price = simulate_ar1(mu_ann=0.00, rho=0.2, sigma_ann=0.15, years=3, seed=123)
 rets = price.pct_change().dropna()
 
-hedged = rolling_put_hedge(price, moneyness=0.95, tenor_days=21, iv_annual=0.20).dropna()
+hedged, roll_flags = rolling_put_hedge(price, moneyness=0.95, tenor_days=21, iv_annual=0.20)
+
 wealth_asset = (1+rets).cumprod()
 wealth_hedged = (1+hedged).cumprod()
 

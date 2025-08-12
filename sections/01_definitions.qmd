@@ -8,33 +8,38 @@ Consistent drawdown metrics allow fair comparison across strategies and time per
 
 ### Maximum Drawdown (MDD)
 Definition: largest peak-to-trough loss.
-\[
+
+$$
 \mathrm{MDD} = \min_t\left(\frac{P_t}{\max_{\tau \le t} P_\tau}-1\right)
-\]
+$$
 
 ### Average Drawdown (AvgDD)
 Definition: mean depth across all drawdowns.
-\[
+
+$$
 \mathrm{AvgDD} = \frac{1}{N_{\text{dd}}}\sum_{i=1}^{N_{\text{dd}}}\left(\frac{P_{\text{trough},i}}{P_{\text{peak},i}}-1\right)
-\]
+$$
 
 ### Time Under Water (TUW)
 Definition: average duration from a peak to full recovery.
-\[
+
+$$
 \mathrm{TUW} = \frac{1}{N_{\text{dd}}}\sum_{i=1}^{N_{\text{dd}}}\left(t_{\text{rec},i}-t_{\text{peak},i}\right)
-\]
+$$
 
 ### Ulcer Index (UI)
 Definition: RMS of percentage drawdowns (emphasizes persistent pain).
-\[
+
+$$
 \mathrm{UI} = \sqrt{\frac{1}{T}\sum_{t=1}^T \left(100\times \min\left(0,\frac{P_t}{\max_{\tau\le t}P_\tau}-1\right)\right)^2}
-\]
+$$
 
 ### Recovery Time
 Definition: longest time from a peak to its recovery.
-\[
+
+$$
 \max_i \left(t_{\text{rec},i}-t_{\text{peak},i}\right)
-\]
+$$
 
 ## SPY example (downloaded with yfinance)
 
@@ -43,7 +48,7 @@ import pandas as pd, numpy as np, matplotlib.pyplot as plt
 import yfinance as yf
 from datetime import datetime
 
-spy = yf.download("SPY", start="2000-01-01", auto_adjust=True, progress=False)["Close"].asfreq("B").ffill()
+spy = yf.download("SPY", start="2000-01-01", auto_adjust=True, progress=False)["Close"].squeeze().asfreq("B").ffill()
 rets = spy.pct_change().dropna()
 wealth = (1+rets).cumprod()
 dd = wealth/wealth.cummax() - 1
@@ -92,6 +97,8 @@ tbl = pd.DataFrame({
     "UlcerIndex":[ui]
 })
 display(tbl.round(4))
+import os
+os.makedirs("figures", exist_ok=True)
 tbl.to_csv("figures/spy_drawdown_metrics.csv", index=False)
 print("Saved to figures/spy_drawdown_metrics.csv")
 ```
