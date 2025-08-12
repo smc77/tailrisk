@@ -5,7 +5,7 @@ project:
 
 book:
   title: "Drawdown Risk: Measurement, Prediction, and Mitigation"
-  author: "Your Name"
+  author: "Shane Conway"
   chapters:
     - index.qmd
     - sections/01_definitions.qmd
