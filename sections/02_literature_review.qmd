@@ -1,16 +1,36 @@
-
 # Literature Review
 
-## Drawdown theory and measures
-- Brownian/diffusion results (@MagdonIsmail2004_mdd_brownian; @HadjiliadisVecer_drawdown_diffusions).
-- CED and CDaR risk frameworks (@GoldbergMahmoud2014_ced; @Chekhlov2005_cdar).
+This section surveys theory and evidence on drawdowns, their measurement, and interventions that aim to mitigate or anticipate them. We begin with analytical results for stylized processes, then review optimization under drawdown constraints, alternative risk measures, and the literature on early warnings and mitigation through stop-loss rules, momentum overlays, and hedging.
 
-## Predicting drawdowns and crashes
-- LPPL and critiques (@sornette2003_whycrash; @johansen2000_lppl; @filimonov2013_lppl).
-- Correlation eigenvalue spikes (@Conlon2010_drawdown_correlation).
-- Regime-switching warnings (@LoRemorov2017_stoploss_regimes).
-- Reflexivity (Soros) and multifractals (Mandelbrot).
+## Drawdown mechanics and stylized models
+Early work characterizes the maximum drawdown (MDD) of continuous-time diffusions and discrete-time random walks. Closed-form or semi-closed-form results exist for Brownian motion and related processes, providing benchmarks for how often and how deeply paths fall below previous peaks purely by chance [@MagdonIsmail2004_mdd_brownian; @HadjiliadisVecer_drawdown_diffusions]. These models are invaluable as “nulls” against which more realistic, autocorrelated, or regime-switching processes can be compared.
 
-## Stop-Loss rules and momentum
-- When do stops help? (@KaminskiLo2014_stoploss)
-- Serial correlation, regime persistence, and costs (@LoRemorov2017_stoploss_regimes).
+## Optimization under drawdown constraints
+A parallel literature designs policies that explicitly control drawdown rather than variance. Continuous-time portfolio problems with maximum-drawdown constraints yield optimal feedback rules that limit exposure after losses and scale back in after recoveries [@GrossmanZhou1993_drawdown_constraints]. In discrete time, chance-constrained and dynamic-programming formulations treat drawdown as a state variable, often producing asymmetric risk-taking rules.
+
+## Risk measures beyond variance
+Several practical measures complement or replace volatility for portfolios whose investors are especially sensitive to underwater periods. Conditional Expected Drawdown (CED) and Conditional Drawdown at Risk (CDaR) generalize VaR/CVaR logic from returns to drawdowns, enabling optimization and attribution frameworks that penalize depth and duration of losses [@GoldbergMahmoud2014_ced; @Chekhlov2005_cdar]. Industry guidance likewise emphasizes “drawdown greeks” for understanding marginal contributions to risk [@HarveyLiu2020_drawdown_greeks].
+
+## Probability of drawdown and feedback control
+Stochastic-control research analyzes the probability of breaching a given drawdown level and derives strategies that minimize it in diffusion settings [@Angoshtari2015_drawdown_probability]. In a related spirit, *drawdown-modulated feedback* adaptively scales positions based on current drawdown state, formalizing intuitive “pain-based” sizing rules [@HsiehBarmish2017_drawdown_feedback].
+
+## Predicting large drawdowns: bubbles and criticality
+The LPPL literature models bubbles as phases of faster-than-exponential growth decorated by log-periodic oscillations, culminating in a critical time $t_c$ when crash risk is elevated [@sornette2003_whycrash; @johansen2000_lppl]. Applications span indices, sectors, and single names, but calibration remains delicate—identifiability issues and overfitting are persistent challenges.
+
+## When to start worrying during a drawdown
+Closer to the practitioner’s perspective, @Rej2017_drawdown_warning analyze the distribution of drawdown lengths and depths under realistic return processes and propose alarm thresholds for when a running drawdown becomes statistically unusual. This helps distinguish expected drawdowns from anomalous events that may warrant de-risking or hedging.
+
+## Stop-loss rules in theory and practice
+A substantial literature evaluates stop-loss rules—both fixed-percentage and trailing—under different data-generating processes and cost structures. @KaminskiLo2014_stoploss show that stops can improve risk-adjusted performance when returns display positive serial correlation and regime persistence, but often underperform buy-and-hold in mean-reverting markets or with high trading costs. @LoRemorov2017_stoploss extend this to regime-switching models with transaction costs.
+
+## The triple penance and behavioral reality of stops
+Beyond mean–variance trade-offs, stops impose triple costs: (i) realizing losses, (ii) risking missed rebounds, and (iii) increasing trading and tax frictions—especially when whipsaws are frequent [@Bailey2014_triple_penance]. This perspective helps explain why stops may reduce MDD but still disappoint investors if re-entry logic is weak.
+
+## Stops, momentum, and reflexivity
+Trailing stops that re-enter only after a prior peak mechanically embed a momentum filter: exposure is kept when trend is healthy and cut when it’s impaired, with re-risking contingent on trend resumption. This links stops to time-series momentum and moving-average rules, and to reflexivity in which losses tighten risk limits, reduce liquidity, and deepen trends.
+
+## Correlation, contagion, and systemic warnings
+Large drawdowns often coincide with spikes in cross-asset correlations and concentration of variance in the first principal component; monitoring rolling eigenvalues of the correlation matrix can serve as a contemporaneous warning of systemic fragility [@Conlon2010_drawdown_correlation].
+
+## From warnings to action: hedging and overlays
+Predictive signals must tie to concrete actions. Broadly, there are two levers: (i) exposure control via stops or momentum overlays, and (ii) explicit hedges (e.g., VIX futures or index puts). The most promising results come from integrated policies that tie hedge intensity or stop thresholds to early-warning probabilities, while accounting for costs and whipsaws.
