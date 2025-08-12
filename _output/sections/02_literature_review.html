@@ -89,6 +89,35 @@ div.csl-indent {
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../styles/custom.css">
 </head>
@@ -191,9 +220,17 @@ div.csl-indent {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#drawdown-theory-and-measures" id="toc-drawdown-theory-and-measures" class="nav-link active" data-scroll-target="#drawdown-theory-and-measures"><span class="header-section-number">3.1</span> Drawdown theory and measures</a></li>
-  <li><a href="#predicting-drawdowns-and-crashes" id="toc-predicting-drawdowns-and-crashes" class="nav-link" data-scroll-target="#predicting-drawdowns-and-crashes"><span class="header-section-number">3.2</span> Predicting drawdowns and crashes</a></li>
-  <li><a href="#stop-loss-rules-and-momentum" id="toc-stop-loss-rules-and-momentum" class="nav-link" data-scroll-target="#stop-loss-rules-and-momentum"><span class="header-section-number">3.3</span> Stop-Loss rules and momentum</a></li>
+  <li><a href="#drawdown-mechanics-and-stylized-models" id="toc-drawdown-mechanics-and-stylized-models" class="nav-link active" data-scroll-target="#drawdown-mechanics-and-stylized-models"><span class="header-section-number">3.1</span> Drawdown mechanics and stylized models</a></li>
+  <li><a href="#optimization-under-drawdown-constraints" id="toc-optimization-under-drawdown-constraints" class="nav-link" data-scroll-target="#optimization-under-drawdown-constraints"><span class="header-section-number">3.2</span> Optimization under drawdown constraints</a></li>
+  <li><a href="#risk-measures-beyond-variance" id="toc-risk-measures-beyond-variance" class="nav-link" data-scroll-target="#risk-measures-beyond-variance"><span class="header-section-number">3.3</span> Risk measures beyond variance</a></li>
+  <li><a href="#probability-of-drawdown-and-feedback-control" id="toc-probability-of-drawdown-and-feedback-control" class="nav-link" data-scroll-target="#probability-of-drawdown-and-feedback-control"><span class="header-section-number">3.4</span> Probability of drawdown and feedback control</a></li>
+  <li><a href="#predicting-large-drawdowns-bubbles-and-criticality" id="toc-predicting-large-drawdowns-bubbles-and-criticality" class="nav-link" data-scroll-target="#predicting-large-drawdowns-bubbles-and-criticality"><span class="header-section-number">3.5</span> Predicting large drawdowns: bubbles and criticality</a></li>
+  <li><a href="#when-to-start-worrying-during-a-drawdown" id="toc-when-to-start-worrying-during-a-drawdown" class="nav-link" data-scroll-target="#when-to-start-worrying-during-a-drawdown"><span class="header-section-number">3.6</span> When to start worrying during a drawdown</a></li>
+  <li><a href="#stop-loss-rules-in-theory-and-practice" id="toc-stop-loss-rules-in-theory-and-practice" class="nav-link" data-scroll-target="#stop-loss-rules-in-theory-and-practice"><span class="header-section-number">3.7</span> Stop-loss rules in theory and practice</a></li>
+  <li><a href="#the-triple-penance-and-behavioral-reality-of-stops" id="toc-the-triple-penance-and-behavioral-reality-of-stops" class="nav-link" data-scroll-target="#the-triple-penance-and-behavioral-reality-of-stops"><span class="header-section-number">3.8</span> The triple penance and behavioral reality of stops</a></li>
+  <li><a href="#stops-momentum-and-reflexivity" id="toc-stops-momentum-and-reflexivity" class="nav-link" data-scroll-target="#stops-momentum-and-reflexivity"><span class="header-section-number">3.9</span> Stops, momentum, and reflexivity</a></li>
+  <li><a href="#correlation-contagion-and-systemic-warnings" id="toc-correlation-contagion-and-systemic-warnings" class="nav-link" data-scroll-target="#correlation-contagion-and-systemic-warnings"><span class="header-section-number">3.10</span> Correlation, contagion, and systemic warnings</a></li>
+  <li><a href="#from-warnings-to-action-hedging-and-overlays" id="toc-from-warnings-to-action-hedging-and-overlays" class="nav-link" data-scroll-target="#from-warnings-to-action-hedging-and-overlays"><span class="header-section-number">3.11</span> From warnings to action: hedging and overlays</a></li>
   </ul>
 </nav>
     </div>
@@ -219,60 +256,97 @@ div.csl-indent {
 </header>
 
 
-<section id="drawdown-theory-and-measures" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="drawdown-theory-and-measures"><span class="header-section-number">3.1</span> Drawdown theory and measures</h2>
-<ul>
-<li>Brownian/diffusion results (<span class="citation" data-cites="MagdonIsmail2004_mdd_brownian">Magdon-Ismail et al. (<a href="#ref-MagdonIsmail2004_mdd_brownian" role="doc-biblioref">2004</a>)</span>; <span class="citation" data-cites="HadjiliadisVecer_drawdown_diffusions">Hadjiliadis and Vecer (<a href="#ref-HadjiliadisVecer_drawdown_diffusions" role="doc-biblioref">2006</a>)</span>).</li>
-<li>CED and CDaR risk frameworks (<span class="citation" data-cites="GoldbergMahmoud2014_ced">Goldberg and Mahmoud (<a href="#ref-GoldbergMahmoud2014_ced" role="doc-biblioref">2014</a>)</span>; <span class="citation" data-cites="Chekhlov2005_cdar">Chekhlov, Uryasev, and Zabarankin (<a href="#ref-Chekhlov2005_cdar" role="doc-biblioref">2005</a>)</span>).</li>
-</ul>
+<p>This section surveys theory and evidence on drawdowns, their measurement, and interventions that aim to mitigate or anticipate them. We begin with analytical results for stylized processes, then review optimization under drawdown constraints, alternative risk measures, and the literature on early warnings and mitigation through stop-loss rules, momentum overlays, and hedging.</p>
+<section id="drawdown-mechanics-and-stylized-models" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="drawdown-mechanics-and-stylized-models"><span class="header-section-number">3.1</span> Drawdown mechanics and stylized models</h2>
+<p>Early work characterizes the maximum drawdown (MDD) of continuous-time diffusions and discrete-time random walks. Closed-form or semi-closed-form results exist for Brownian motion and related processes, providing benchmarks for how often and how deeply paths fall below previous peaks purely by chance <span class="citation" data-cites="MagdonIsmail2004_mdd_brownian HadjiliadisVecer_drawdown_diffusions">(<a href="#ref-MagdonIsmail2004_mdd_brownian" role="doc-biblioref">Magdon-Ismail et al. 2004</a>; <a href="#ref-HadjiliadisVecer_drawdown_diffusions" role="doc-biblioref">Hadjiliadis and Vecer 2006</a>)</span>. These models are invaluable as “nulls” against which more realistic, autocorrelated, or regime-switching processes can be compared.</p>
 </section>
-<section id="predicting-drawdowns-and-crashes" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="predicting-drawdowns-and-crashes"><span class="header-section-number">3.2</span> Predicting drawdowns and crashes</h2>
-<ul>
-<li>LPPL and critiques (<span class="citation" data-cites="sornette2003_whycrash">Sornette (<a href="#ref-sornette2003_whycrash" role="doc-biblioref">2003</a>)</span>; <span class="citation" data-cites="johansen2000_lppl">Johansen, Ledoit, and Sornette (<a href="#ref-johansen2000_lppl" role="doc-biblioref">2000</a>)</span>; <span class="citation" data-cites="filimonov2013_lppl">Filimonov and Sornette (<a href="#ref-filimonov2013_lppl" role="doc-biblioref">2013</a>)</span>).</li>
-<li>Correlation eigenvalue spikes (<span class="citation" data-cites="Conlon2010_drawdown_correlation">Conlon, Ruskin, and Crane (<a href="#ref-Conlon2010_drawdown_correlation" role="doc-biblioref">2010</a>)</span>).</li>
-<li>Regime-switching warnings (<span class="citation" data-cites="LoRemorov2017_stoploss_regimes">Lo and Remorov (<a href="#ref-LoRemorov2017_stoploss_regimes" role="doc-biblioref">2017</a>)</span>).</li>
-<li>Reflexivity (Soros) and multifractals (Mandelbrot).</li>
-</ul>
+<section id="optimization-under-drawdown-constraints" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="optimization-under-drawdown-constraints"><span class="header-section-number">3.2</span> Optimization under drawdown constraints</h2>
+<p>A parallel literature designs policies that explicitly control drawdown rather than variance. Continuous-time portfolio problems with maximum-drawdown constraints yield optimal feedback rules that limit exposure after losses and scale back in after recoveries <span class="citation" data-cites="GrossmanZhou1993_drawdown_constraints">(<a href="#ref-GrossmanZhou1993_drawdown_constraints" role="doc-biblioref">Grossman and Zhou 1993</a>)</span>. In discrete time, chance-constrained and dynamic-programming formulations treat drawdown as a state variable, often producing asymmetric risk-taking rules.</p>
 </section>
-<section id="stop-loss-rules-and-momentum" class="level2" data-number="3.3">
-<h2 data-number="3.3" class="anchored" data-anchor-id="stop-loss-rules-and-momentum"><span class="header-section-number">3.3</span> Stop-Loss rules and momentum</h2>
-<ul>
-<li>When do stops help? (<span class="citation" data-cites="KaminskiLo2014_stoploss">Kaminski and Lo (<a href="#ref-KaminskiLo2014_stoploss" role="doc-biblioref">2014</a>)</span>)</li>
-<li>Serial correlation, regime persistence, and costs (<span class="citation" data-cites="LoRemorov2017_stoploss_regimes">Lo and Remorov (<a href="#ref-LoRemorov2017_stoploss_regimes" role="doc-biblioref">2017</a>)</span>).</li>
-</ul>
+<section id="risk-measures-beyond-variance" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="risk-measures-beyond-variance"><span class="header-section-number">3.3</span> Risk measures beyond variance</h2>
+<p>Several practical measures complement or replace volatility for portfolios whose investors are especially sensitive to underwater periods. Conditional Expected Drawdown (CED) and Conditional Drawdown at Risk (CDaR) generalize VaR/CVaR logic from returns to drawdowns, enabling optimization and attribution frameworks that penalize depth and duration of losses <span class="citation" data-cites="GoldbergMahmoud2014_ced Chekhlov2005_cdar">(<a href="#ref-GoldbergMahmoud2014_ced" role="doc-biblioref">Goldberg and Mahmoud 2014</a>; <a href="#ref-Chekhlov2005_cdar" role="doc-biblioref">Chekhlov, Uryasev, and Zabarankin 2005</a>)</span>. Industry guidance likewise emphasizes “drawdown greeks” for understanding marginal contributions to risk <span class="citation" data-cites="HarveyLiu2020_drawdown_greeks">(<a href="#ref-HarveyLiu2020_drawdown_greeks" role="doc-biblioref">Harvey and Liu 2020</a>)</span>.</p>
+</section>
+<section id="probability-of-drawdown-and-feedback-control" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="probability-of-drawdown-and-feedback-control"><span class="header-section-number">3.4</span> Probability of drawdown and feedback control</h2>
+<p>Stochastic-control research analyzes the probability of breaching a given drawdown level and derives strategies that minimize it in diffusion settings <span class="citation" data-cites="Angoshtari2015_drawdown_probability">(<a href="#ref-Angoshtari2015_drawdown_probability" role="doc-biblioref">Angoshtari, Bayraktar, and Young 2015</a>)</span>. In a related spirit, <em>drawdown-modulated feedback</em> adaptively scales positions based on current drawdown state, formalizing intuitive “pain-based” sizing rules <span class="citation" data-cites="HsiehBarmish2017_drawdown_feedback">(<a href="#ref-HsiehBarmish2017_drawdown_feedback" role="doc-biblioref">Hsieh and Barmish 2017</a>)</span>.</p>
+</section>
+<section id="predicting-large-drawdowns-bubbles-and-criticality" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="predicting-large-drawdowns-bubbles-and-criticality"><span class="header-section-number">3.5</span> Predicting large drawdowns: bubbles and criticality</h2>
+<p>The LPPL literature models bubbles as phases of faster-than-exponential growth decorated by log-periodic oscillations, culminating in a critical time <span class="math inline">\(t_c\)</span> when crash risk is elevated <span class="citation" data-cites="sornette2003_whycrash johansen2000_lppl">(<a href="#ref-sornette2003_whycrash" role="doc-biblioref">Sornette 2003</a>; <a href="#ref-johansen2000_lppl" role="doc-biblioref">Johansen and Sornette 2000</a>)</span>. Applications span indices, sectors, and single names, but calibration remains delicate—identifiability issues and overfitting are persistent challenges.</p>
+</section>
+<section id="when-to-start-worrying-during-a-drawdown" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="when-to-start-worrying-during-a-drawdown"><span class="header-section-number">3.6</span> When to start worrying during a drawdown</h2>
+<p>Closer to the practitioner’s perspective, <span class="citation" data-cites="Rej2017_drawdown_warning">Rej, Seager, and Bouchaud (<a href="#ref-Rej2017_drawdown_warning" role="doc-biblioref">2017</a>)</span> analyze the distribution of drawdown lengths and depths under realistic return processes and propose alarm thresholds for when a running drawdown becomes statistically unusual. This helps distinguish expected drawdowns from anomalous events that may warrant de-risking or hedging.</p>
+</section>
+<section id="stop-loss-rules-in-theory-and-practice" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="stop-loss-rules-in-theory-and-practice"><span class="header-section-number">3.7</span> Stop-loss rules in theory and practice</h2>
+<p>A substantial literature evaluates stop-loss rules—both fixed-percentage and trailing—under different data-generating processes and cost structures. <span class="citation" data-cites="KaminskiLo2014_stoploss">Kaminski and Lo (<a href="#ref-KaminskiLo2014_stoploss" role="doc-biblioref">2014</a>)</span> show that stops can improve risk-adjusted performance when returns display positive serial correlation and regime persistence, but often underperform buy-and-hold in mean-reverting markets or with high trading costs. <span class="citation" data-cites="LoRemorov2017_stoploss">Lo and Remorov (<a href="#ref-LoRemorov2017_stoploss" role="doc-biblioref">2017</a>)</span> extend this to regime-switching models with transaction costs.</p>
+</section>
+<section id="the-triple-penance-and-behavioral-reality-of-stops" class="level2" data-number="3.8">
+<h2 data-number="3.8" class="anchored" data-anchor-id="the-triple-penance-and-behavioral-reality-of-stops"><span class="header-section-number">3.8</span> The triple penance and behavioral reality of stops</h2>
+<p>Beyond mean–variance trade-offs, stops impose triple costs: (i) realizing losses, (ii) risking missed rebounds, and (iii) increasing trading and tax frictions—especially when whipsaws are frequent <span class="citation" data-cites="Bailey2014_triple_penance">(<a href="#ref-Bailey2014_triple_penance" role="doc-biblioref">Bailey and Lopez de Prado 2014</a>)</span>. This perspective helps explain why stops may reduce MDD but still disappoint investors if re-entry logic is weak.</p>
+</section>
+<section id="stops-momentum-and-reflexivity" class="level2" data-number="3.9">
+<h2 data-number="3.9" class="anchored" data-anchor-id="stops-momentum-and-reflexivity"><span class="header-section-number">3.9</span> Stops, momentum, and reflexivity</h2>
+<p>Trailing stops that re-enter only after a prior peak mechanically embed a momentum filter: exposure is kept when trend is healthy and cut when it’s impaired, with re-risking contingent on trend resumption. This links stops to time-series momentum and moving-average rules, and to reflexivity in which losses tighten risk limits, reduce liquidity, and deepen trends.</p>
+</section>
+<section id="correlation-contagion-and-systemic-warnings" class="level2" data-number="3.10">
+<h2 data-number="3.10" class="anchored" data-anchor-id="correlation-contagion-and-systemic-warnings"><span class="header-section-number">3.10</span> Correlation, contagion, and systemic warnings</h2>
+<p>Large drawdowns often coincide with spikes in cross-asset correlations and concentration of variance in the first principal component; monitoring rolling eigenvalues of the correlation matrix can serve as a contemporaneous warning of systemic fragility <span class="citation" data-cites="Conlon2010_drawdown_correlation">(<a href="#ref-Conlon2010_drawdown_correlation" role="doc-biblioref">Conlon and Cotter 2010</a>)</span>.</p>
+</section>
+<section id="from-warnings-to-action-hedging-and-overlays" class="level2" data-number="3.11">
+<h2 data-number="3.11" class="anchored" data-anchor-id="from-warnings-to-action-hedging-and-overlays"><span class="header-section-number">3.11</span> From warnings to action: hedging and overlays</h2>
+<p>Predictive signals must tie to concrete actions. Broadly, there are two levers: (i) exposure control via stops or momentum overlays, and (ii) explicit hedges (e.g., VIX futures or index puts). The most promising results come from integrated policies that tie hedge intensity or stop thresholds to early-warning probabilities, while accounting for costs and whipsaws.</p>
 
 
 <div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-Angoshtari2015_drawdown_probability" class="csl-entry" role="listitem">
+Angoshtari, Bahman, Erhan Bayraktar, and Virginia R. Young. 2015. <span>“Minimizing the Probability of Drawdown in Diffusion Models.”</span> <em>Stochastic Processes and Their Applications</em> 125 (5): 1810–65.
+</div>
+<div id="ref-Bailey2014_triple_penance" class="csl-entry" role="listitem">
+Bailey, David H., and Marcos Lopez de Prado. 2014. <span>“Stop-Loss Strategies, Serial Correlation, and the Triple Penance Rule.”</span> <em>Journal of Risk</em> 17 (2): 91–113.
+</div>
 <div id="ref-Chekhlov2005_cdar" class="csl-entry" role="listitem">
-Chekhlov, Alex, Stanislav Uryasev, and Roman Zabarankin. 2005. <span>“Drawdown Measure in Portfolio Optimization.”</span> In <em>International Conference on Computational Science</em>, 294–301. Springer. <a href="https://doi.org/10.1007/11428831_35">https://doi.org/10.1007/11428831_35</a>.
+Chekhlov, Alexei, Stanislav Uryasev, and Roman Zabarankin. 2005. <span>“Drawdown Measure in Portfolio Optimization.”</span> <em>International Journal of Theoretical and Applied Finance</em> 8 (1): 13–58.
 </div>
 <div id="ref-Conlon2010_drawdown_correlation" class="csl-entry" role="listitem">
-Conlon, Thomas, Heather J. Ruskin, and Martin Crane. 2010. <span>“Cross-Correlation Dynamics in Financial Markets.”</span> <em>Physica A: Statistical Mechanics and Its Applications</em> 389 (21): 5228–39. <a href="https://doi.org/10.1016/j.physa.2010.05.050">https://doi.org/10.1016/j.physa.2010.05.050</a>.
-</div>
-<div id="ref-filimonov2013_lppl" class="csl-entry" role="listitem">
-Filimonov, Vladimir, and Didier Sornette. 2013. <span>“Apparent Criticality and Calibration Issues in the Log-Periodic Power Law Model.”</span> <em>Quantitative Finance</em> 13 (11): 1701–20. <a href="https://doi.org/10.1080/14697688.2013.802144">https://doi.org/10.1080/14697688.2013.802144</a>.
+Conlon, Thomas, and John Cotter. 2010. <span>“Cross-Market Linkages and Financial Contagion.”</span> <em>International Review of Financial Analysis</em> 19 (3): 190–202.
 </div>
 <div id="ref-GoldbergMahmoud2014_ced" class="csl-entry" role="listitem">
-Goldberg, Lisa R., and Ola Mahmoud. 2014. <span>“Drawdown: From Practice to Theory and Back Again.”</span> <em>Mathematics and Financial Economics</em> 8 (3): 211–49. <a href="https://doi.org/10.1007/s11579-014-0119-8">https://doi.org/10.1007/s11579-014-0119-8</a>.
+Goldberg, Lisa R., and Owais Mahmoud. 2014. <span>“Drawdown: From Practice to Theory and Back Again.”</span> <em>Journal of Investment Strategies</em> 3 (4): 29–46.
+</div>
+<div id="ref-GrossmanZhou1993_drawdown_constraints" class="csl-entry" role="listitem">
+Grossman, Sanford J., and Zhongquan Zhou. 1993. <span>“Optimal Investment Strategies for Controlling Drawdowns.”</span> <em>Mathematical Finance</em> 3 (3): 241–76.
 </div>
 <div id="ref-HadjiliadisVecer_drawdown_diffusions" class="csl-entry" role="listitem">
-Hadjiliadis, Olympia, and Jan Vecer. 2006. <span>“Drawdowns Preceding Rallies in Diffusion Models.”</span> <em>Quantitative Finance</em> 6 (5): 403–9. <a href="https://doi.org/10.1080/14697680600815604">https://doi.org/10.1080/14697680600815604</a>.
+Hadjiliadis, Olympia, and Jan Vecer. 2006. <span>“Drawdowns and the Speed of Market Recovery.”</span> <em>Stochastic Processes and Their Applications</em>.
+</div>
+<div id="ref-HarveyLiu2020_drawdown_greeks" class="csl-entry" role="listitem">
+Harvey, Campbell R., and Yan Liu. 2020. <span>“Drawdown: Measures, Risk and Mitigation.”</span> <em>Journal of Portfolio Management</em> 46 (6): 28–39.
+</div>
+<div id="ref-HsiehBarmish2017_drawdown_feedback" class="csl-entry" role="listitem">
+Hsieh, Chuangyin, and B. Ross Barmish. 2017. <span>“On Drawdown-Modulated Feedback Control in Stock Trading.”</span> <em>Quantitative Finance</em> 17 (3): 329–40.
 </div>
 <div id="ref-johansen2000_lppl" class="csl-entry" role="listitem">
-Johansen, Anders, Olivier Ledoit, and Didier Sornette. 2000. <span>“Crashes as Critical Points.”</span> <em>International Journal of Theoretical and Applied Finance</em> 3 (2): 219–55. <a href="https://doi.org/10.1142/S0219024900000115">https://doi.org/10.1142/S0219024900000115</a>.
+Johansen, Anders, and Didier Sornette. 2000. <span>“Critical Crashes.”</span> <em>Risk</em> 12 (1): 91–94.
 </div>
 <div id="ref-KaminskiLo2014_stoploss" class="csl-entry" role="listitem">
-Kaminski, Kathryn M., and Andrew W. Lo. 2014. <span>“When Do Stop-Loss Rules Stop Losses?”</span> <em>Journal of Portfolio Management</em> 40 (2): 45–61. <a href="https://doi.org/10.3905/jpm.2014.40.2.045">https://doi.org/10.3905/jpm.2014.40.2.045</a>.
+Kaminski, Kathryn M., and Andrew W. Lo. 2014. <span>“When Do Stop-Loss Rules Stop Losses?”</span> <em>Journal of Portfolio Management</em> 40 (2): 45–61.
 </div>
-<div id="ref-LoRemorov2017_stoploss_regimes" class="csl-entry" role="listitem">
-Lo, Andrew W., and Alexander Remorov. 2017. <span>“Stop‐loss Strategies with Serial Correlation, Regime Switching, and Transaction Costs.”</span> <em>Journal of Financial Markets</em> 34: 1–15. <a href="https://doi.org/10.1016/j.finmar.2017.02.003">https://doi.org/10.1016/j.finmar.2017.02.003</a>.
+<div id="ref-LoRemorov2017_stoploss" class="csl-entry" role="listitem">
+Lo, Andrew W., and Alexander Remorov. 2017. <span>“Stop-Loss Strategies with Serial Correlation, Regime Switching, and Transactions Costs.”</span> <em>Journal of Portfolio Management</em> 43 (2): 59–75.
 </div>
 <div id="ref-MagdonIsmail2004_mdd_brownian" class="csl-entry" role="listitem">
-Magdon-Ismail, Malik, Amir F. Atiya, Amit Pratap, and Yaser S. Abu-Mostafa. 2004. <span>“Maximum Drawdown for Brownian Motion.”</span> <em>Journal of Applied Probability</em> 41 (1): 147–61. <a href="https://doi.org/10.1239/jap/1077134663">https://doi.org/10.1239/jap/1077134663</a>.
+Magdon-Ismail, Malik, Amir F. Atiya, Ashraf Pratap, and Yaser S. Abu-Mostafa. 2004. <span>“Maximum Drawdown Under Brownian Motion.”</span> <em>Risk</em>.
+</div>
+<div id="ref-Rej2017_drawdown_warning" class="csl-entry" role="listitem">
+Rej, Adam, Philip Seager, and Jean-Philippe Bouchaud. 2017. <span>“You Are in a Drawdown. When Should You Start Worrying?”</span> <em>arXiv Preprint</em>.
 </div>
 <div id="ref-sornette2003_whycrash" class="csl-entry" role="listitem">
-Sornette, Didier. 2003. <em>Why Stock Markets Crash: Critical Events in Complex Financial Systems</em>. Princeton, NJ: Princeton University Press.
+Sornette, Didier. 2003. <em>Why Stock Markets Crash: Critical Events in Complex Financial Systems</em>. Princeton University Press.
 </div>
 </div>
 </section>

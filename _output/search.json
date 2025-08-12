@@ -54,37 +54,107 @@
     "href": "sections/02_literature_review.html",
     "title": "3  Literature Review",
     "section": "",
-    "text": "3.1 Drawdown theory and measures",
+    "text": "3.1 Drawdown mechanics and stylized models\nThis section surveys theory and evidence on drawdowns, their measurement, and interventions that aim to mitigate or anticipate them. We begin with analytical results for stylized processes, then review optimization under drawdown constraints, alternative risk measures, and the literature on early warnings and mitigation through stop-loss rules, momentum overlays, and hedging.\nEarly work characterizes the maximum drawdown (MDD) of continuous-time diffusions and discrete-time random walks. Closed-form or semi-closed-form results exist for Brownian motion and related processes, providing benchmarks for how often and how deeply paths fall below previous peaks purely by chance (Magdon-Ismail et al. 2004; Hadjiliadis and Vecer 2006). These models are invaluable as “nulls” against which more realistic, autocorrelated, or regime-switching processes can be compared.",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
     ]
   },
   {
-    "objectID": "sections/02_literature_review.html#drawdown-theory-and-measures",
-    "href": "sections/02_literature_review.html#drawdown-theory-and-measures",
+    "objectID": "sections/02_literature_review.html#optimization-under-drawdown-constraints",
+    "href": "sections/02_literature_review.html#optimization-under-drawdown-constraints",
     "title": "3  Literature Review",
-    "section": "",
-    "text": "Brownian/diffusion results (Magdon-Ismail et al. (2004); Hadjiliadis and Vecer (2006)).\nCED and CDaR risk frameworks (Goldberg and Mahmoud (2014); Chekhlov, Uryasev, and Zabarankin (2005)).",
+    "section": "3.2 Optimization under drawdown constraints",
+    "text": "3.2 Optimization under drawdown constraints\nA parallel literature designs policies that explicitly control drawdown rather than variance. Continuous-time portfolio problems with maximum-drawdown constraints yield optimal feedback rules that limit exposure after losses and scale back in after recoveries (Grossman and Zhou 1993). In discrete time, chance-constrained and dynamic-programming formulations treat drawdown as a state variable, often producing asymmetric risk-taking rules.",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
     ]
   },
   {
-    "objectID": "sections/02_literature_review.html#predicting-drawdowns-and-crashes",
-    "href": "sections/02_literature_review.html#predicting-drawdowns-and-crashes",
+    "objectID": "sections/02_literature_review.html#risk-measures-beyond-variance",
+    "href": "sections/02_literature_review.html#risk-measures-beyond-variance",
     "title": "3  Literature Review",
-    "section": "3.2 Predicting drawdowns and crashes",
-    "text": "3.2 Predicting drawdowns and crashes\n\nLPPL and critiques (Sornette (2003); Johansen, Ledoit, and Sornette (2000); Filimonov and Sornette (2013)).\nCorrelation eigenvalue spikes (Conlon, Ruskin, and Crane (2010)).\nRegime-switching warnings (Lo and Remorov (2017)).\nReflexivity (Soros) and multifractals (Mandelbrot).",
+    "section": "3.3 Risk measures beyond variance",
+    "text": "3.3 Risk measures beyond variance\nSeveral practical measures complement or replace volatility for portfolios whose investors are especially sensitive to underwater periods. Conditional Expected Drawdown (CED) and Conditional Drawdown at Risk (CDaR) generalize VaR/CVaR logic from returns to drawdowns, enabling optimization and attribution frameworks that penalize depth and duration of losses (Goldberg and Mahmoud 2014; Chekhlov, Uryasev, and Zabarankin 2005). Industry guidance likewise emphasizes “drawdown greeks” for understanding marginal contributions to risk (Harvey and Liu 2020).",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
     ]
   },
   {
-    "objectID": "sections/02_literature_review.html#stop-loss-rules-and-momentum",
-    "href": "sections/02_literature_review.html#stop-loss-rules-and-momentum",
+    "objectID": "sections/02_literature_review.html#probability-of-drawdown-and-feedback-control",
+    "href": "sections/02_literature_review.html#probability-of-drawdown-and-feedback-control",
     "title": "3  Literature Review",
-    "section": "3.3 Stop-Loss rules and momentum",
-    "text": "3.3 Stop-Loss rules and momentum\n\nWhen do stops help? (Kaminski and Lo (2014))\nSerial correlation, regime persistence, and costs (Lo and Remorov (2017)).\n\n\n\n\n\nChekhlov, Alex, Stanislav Uryasev, and Roman Zabarankin. 2005. “Drawdown Measure in Portfolio Optimization.” In International Conference on Computational Science, 294–301. Springer. https://doi.org/10.1007/11428831_35.\n\n\nConlon, Thomas, Heather J. Ruskin, and Martin Crane. 2010. “Cross-Correlation Dynamics in Financial Markets.” Physica A: Statistical Mechanics and Its Applications 389 (21): 5228–39. https://doi.org/10.1016/j.physa.2010.05.050.\n\n\nFilimonov, Vladimir, and Didier Sornette. 2013. “Apparent Criticality and Calibration Issues in the Log-Periodic Power Law Model.” Quantitative Finance 13 (11): 1701–20. https://doi.org/10.1080/14697688.2013.802144.\n\n\nGoldberg, Lisa R., and Ola Mahmoud. 2014. “Drawdown: From Practice to Theory and Back Again.” Mathematics and Financial Economics 8 (3): 211–49. https://doi.org/10.1007/s11579-014-0119-8.\n\n\nHadjiliadis, Olympia, and Jan Vecer. 2006. “Drawdowns Preceding Rallies in Diffusion Models.” Quantitative Finance 6 (5): 403–9. https://doi.org/10.1080/14697680600815604.\n\n\nJohansen, Anders, Olivier Ledoit, and Didier Sornette. 2000. “Crashes as Critical Points.” International Journal of Theoretical and Applied Finance 3 (2): 219–55. https://doi.org/10.1142/S0219024900000115.\n\n\nKaminski, Kathryn M., and Andrew W. Lo. 2014. “When Do Stop-Loss Rules Stop Losses?” Journal of Portfolio Management 40 (2): 45–61. https://doi.org/10.3905/jpm.2014.40.2.045.\n\n\nLo, Andrew W., and Alexander Remorov. 2017. “Stop‐loss Strategies with Serial Correlation, Regime Switching, and Transaction Costs.” Journal of Financial Markets 34: 1–15. https://doi.org/10.1016/j.finmar.2017.02.003.\n\n\nMagdon-Ismail, Malik, Amir F. Atiya, Amit Pratap, and Yaser S. Abu-Mostafa. 2004. “Maximum Drawdown for Brownian Motion.” Journal of Applied Probability 41 (1): 147–61. https://doi.org/10.1239/jap/1077134663.\n\n\nSornette, Didier. 2003. Why Stock Markets Crash: Critical Events in Complex Financial Systems. Princeton, NJ: Princeton University Press.",
+    "section": "3.4 Probability of drawdown and feedback control",
+    "text": "3.4 Probability of drawdown and feedback control\nStochastic-control research analyzes the probability of breaching a given drawdown level and derives strategies that minimize it in diffusion settings (Angoshtari, Bayraktar, and Young 2015). In a related spirit, drawdown-modulated feedback adaptively scales positions based on current drawdown state, formalizing intuitive “pain-based” sizing rules (Hsieh and Barmish 2017).",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#predicting-large-drawdowns-bubbles-and-criticality",
+    "href": "sections/02_literature_review.html#predicting-large-drawdowns-bubbles-and-criticality",
+    "title": "3  Literature Review",
+    "section": "3.5 Predicting large drawdowns: bubbles and criticality",
+    "text": "3.5 Predicting large drawdowns: bubbles and criticality\nThe LPPL literature models bubbles as phases of faster-than-exponential growth decorated by log-periodic oscillations, culminating in a critical time \\(t_c\\) when crash risk is elevated (Sornette 2003; Johansen and Sornette 2000). Applications span indices, sectors, and single names, but calibration remains delicate—identifiability issues and overfitting are persistent challenges.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#when-to-start-worrying-during-a-drawdown",
+    "href": "sections/02_literature_review.html#when-to-start-worrying-during-a-drawdown",
+    "title": "3  Literature Review",
+    "section": "3.6 When to start worrying during a drawdown",
+    "text": "3.6 When to start worrying during a drawdown\nCloser to the practitioner’s perspective, Rej, Seager, and Bouchaud (2017) analyze the distribution of drawdown lengths and depths under realistic return processes and propose alarm thresholds for when a running drawdown becomes statistically unusual. This helps distinguish expected drawdowns from anomalous events that may warrant de-risking or hedging.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#stop-loss-rules-in-theory-and-practice",
+    "href": "sections/02_literature_review.html#stop-loss-rules-in-theory-and-practice",
+    "title": "3  Literature Review",
+    "section": "3.7 Stop-loss rules in theory and practice",
+    "text": "3.7 Stop-loss rules in theory and practice\nA substantial literature evaluates stop-loss rules—both fixed-percentage and trailing—under different data-generating processes and cost structures. Kaminski and Lo (2014) show that stops can improve risk-adjusted performance when returns display positive serial correlation and regime persistence, but often underperform buy-and-hold in mean-reverting markets or with high trading costs. Lo and Remorov (2017) extend this to regime-switching models with transaction costs.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#the-triple-penance-and-behavioral-reality-of-stops",
+    "href": "sections/02_literature_review.html#the-triple-penance-and-behavioral-reality-of-stops",
+    "title": "3  Literature Review",
+    "section": "3.8 The triple penance and behavioral reality of stops",
+    "text": "3.8 The triple penance and behavioral reality of stops\nBeyond mean–variance trade-offs, stops impose triple costs: (i) realizing losses, (ii) risking missed rebounds, and (iii) increasing trading and tax frictions—especially when whipsaws are frequent (Bailey and Lopez de Prado 2014). This perspective helps explain why stops may reduce MDD but still disappoint investors if re-entry logic is weak.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#stops-momentum-and-reflexivity",
+    "href": "sections/02_literature_review.html#stops-momentum-and-reflexivity",
+    "title": "3  Literature Review",
+    "section": "3.9 Stops, momentum, and reflexivity",
+    "text": "3.9 Stops, momentum, and reflexivity\nTrailing stops that re-enter only after a prior peak mechanically embed a momentum filter: exposure is kept when trend is healthy and cut when it’s impaired, with re-risking contingent on trend resumption. This links stops to time-series momentum and moving-average rules, and to reflexivity in which losses tighten risk limits, reduce liquidity, and deepen trends.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#correlation-contagion-and-systemic-warnings",
+    "href": "sections/02_literature_review.html#correlation-contagion-and-systemic-warnings",
+    "title": "3  Literature Review",
+    "section": "3.10 Correlation, contagion, and systemic warnings",
+    "text": "3.10 Correlation, contagion, and systemic warnings\nLarge drawdowns often coincide with spikes in cross-asset correlations and concentration of variance in the first principal component; monitoring rolling eigenvalues of the correlation matrix can serve as a contemporaneous warning of systemic fragility (Conlon and Cotter 2010).",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
+    ]
+  },
+  {
+    "objectID": "sections/02_literature_review.html#from-warnings-to-action-hedging-and-overlays",
+    "href": "sections/02_literature_review.html#from-warnings-to-action-hedging-and-overlays",
+    "title": "3  Literature Review",
+    "section": "3.11 From warnings to action: hedging and overlays",
+    "text": "3.11 From warnings to action: hedging and overlays\nPredictive signals must tie to concrete actions. Broadly, there are two levers: (i) exposure control via stops or momentum overlays, and (ii) explicit hedges (e.g., VIX futures or index puts). The most promising results come from integrated policies that tie hedge intensity or stop thresholds to early-warning probabilities, while accounting for costs and whipsaws.\n\n\n\n\nAngoshtari, Bahman, Erhan Bayraktar, and Virginia R. Young. 2015. “Minimizing the Probability of Drawdown in Diffusion Models.” Stochastic Processes and Their Applications 125 (5): 1810–65.\n\n\nBailey, David H., and Marcos Lopez de Prado. 2014. “Stop-Loss Strategies, Serial Correlation, and the Triple Penance Rule.” Journal of Risk 17 (2): 91–113.\n\n\nChekhlov, Alexei, Stanislav Uryasev, and Roman Zabarankin. 2005. “Drawdown Measure in Portfolio Optimization.” International Journal of Theoretical and Applied Finance 8 (1): 13–58.\n\n\nConlon, Thomas, and John Cotter. 2010. “Cross-Market Linkages and Financial Contagion.” International Review of Financial Analysis 19 (3): 190–202.\n\n\nGoldberg, Lisa R., and Owais Mahmoud. 2014. “Drawdown: From Practice to Theory and Back Again.” Journal of Investment Strategies 3 (4): 29–46.\n\n\nGrossman, Sanford J., and Zhongquan Zhou. 1993. “Optimal Investment Strategies for Controlling Drawdowns.” Mathematical Finance 3 (3): 241–76.\n\n\nHadjiliadis, Olympia, and Jan Vecer. 2006. “Drawdowns and the Speed of Market Recovery.” Stochastic Processes and Their Applications.\n\n\nHarvey, Campbell R., and Yan Liu. 2020. “Drawdown: Measures, Risk and Mitigation.” Journal of Portfolio Management 46 (6): 28–39.\n\n\nHsieh, Chuangyin, and B. Ross Barmish. 2017. “On Drawdown-Modulated Feedback Control in Stock Trading.” Quantitative Finance 17 (3): 329–40.\n\n\nJohansen, Anders, and Didier Sornette. 2000. “Critical Crashes.” Risk 12 (1): 91–94.\n\n\nKaminski, Kathryn M., and Andrew W. Lo. 2014. “When Do Stop-Loss Rules Stop Losses?” Journal of Portfolio Management 40 (2): 45–61.\n\n\nLo, Andrew W., and Alexander Remorov. 2017. “Stop-Loss Strategies with Serial Correlation, Regime Switching, and Transactions Costs.” Journal of Portfolio Management 43 (2): 59–75.\n\n\nMagdon-Ismail, Malik, Amir F. Atiya, Ashraf Pratap, and Yaser S. Abu-Mostafa. 2004. “Maximum Drawdown Under Brownian Motion.” Risk.\n\n\nRej, Adam, Philip Seager, and Jean-Philippe Bouchaud. 2017. “You Are in a Drawdown. When Should You Start Worrying?” arXiv Preprint.\n\n\nSornette, Didier. 2003. Why Stock Markets Crash: Critical Events in Complex Financial Systems. Princeton University Press.",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Literature Review</span>"
     ]
@@ -94,7 +164,37 @@
     "href": "sections/03_simulation_framework.html",
     "title": "4  Simulation Framework",
     "section": "",
-    "text": "We simulate AR(1) processes and evaluate Buy & Hold vs a 5% trailing stop, reporting CAGR, Vol, Sharpe, MDD with 95% confidence intervals (Monte Carlo).\n\nimport numpy as np, pandas as pd, matplotlib.pyplot as plt\nfrom scripts.simulations import simulate_ar1, trailing_stop_returns, metrics\n\nnp.random.seed(1)\nyears = 5\nrho_grid = np.linspace(-0.5, 0.5, 9)\ntrials = 30\nsigma_ann = 0.05\nmu_ann = 0.0\n\ndef run_ci(grid, vary=\"rho\"):\n    rows = []\n    for val in grid:\n        bh, sl = [], []\n        for _ in range(trials):\n            price = simulate_ar1(mu_ann=mu_ann if vary==\"rho\" else val,\n                                 rho=val if vary==\"rho\" else 0.0,\n                                 sigma_ann=sigma_ann, years=years, seed=None)\n            bh_rets = price.pct_change().dropna()\n            sl_rets = trailing_stop_returns(price, stop_pct=0.05).iloc[1:]\n            bh.append(metrics(bh_rets)); sl.append(metrics(sl_rets))\n        for name, coll in [(\"BuyHold\", bh), (\"Stop5pct\", sl)]:\n            dfm = pd.DataFrame(coll)\n            for m in [\"CAGR\",\"Vol\",\"MDD\",\"Sharpe\"]:\n                mu = dfm[m].mean(); se = dfm[m].std(ddof=1)/np.sqrt(len(dfm))\n                rows.append({\"Strategy\":name, \"x\":val, \"Metric\":m,\n                             \"Mean\":mu, \"Low\":mu-1.96*se, \"High\":mu+1.96*se})\n    return pd.DataFrame(rows)\n\ndf = run_ci(rho_grid, vary=\"rho\")\n\nfor m, ylab in [(\"CAGR\",\"CAGR\"),(\"Vol\",\"Annualized Vol\"),(\"MDD\",\"Max Drawdown\"),(\"Sharpe\",\"Sharpe\")]:\n    plt.figure()\n    for strat in [\"BuyHold\",\"Stop5pct\"]:\n        sub = df[(df[\"Metric\"]==m) & (df[\"Strategy\"]==strat)].sort_values(\"x\")\n        plt.plot(sub[\"x\"], sub[\"Mean\"], label=strat)\n        plt.fill_between(sub[\"x\"], sub[\"Low\"], sub[\"High\"], alpha=0.2)\n    plt.xlabel(\"rho\"); plt.ylabel(ylab); plt.title(f\"{ylab} vs rho (μ=0)\")\n    plt.legend(); plt.tight_layout(); plt.show()\n\n\n\n\nAR(1), μ=0: Metrics vs ρ with 95% CI (example run)",
+    "text": "5 Simulation Framework\nWe simulate synthetic return paths to test drawdown-mitigation rules under controlled statistical environments. This enables us to:",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Simulation Framework</span>"
+    ]
+  },
+  {
+    "objectID": "sections/03_simulation_framework.html#ar1-process-with-trailing-stop-loss",
+    "href": "sections/03_simulation_framework.html#ar1-process-with-trailing-stop-loss",
+    "title": "4  Simulation Framework",
+    "section": "5.1 AR(1) process with trailing stop-loss",
+    "text": "5.1 AR(1) process with trailing stop-loss\nThe base process for log-returns is:\n\\[\nr_t = \\mu + \\rho (r_{t-1} - \\mu) + \\sigma \\varepsilon_t, \\quad \\varepsilon_t \\sim \\mathcal{N}(0,1)\n\\]\n\n\\(\\mu\\): daily drift\n\n\\(\\rho\\): lag-1 autocorrelation coefficient\n\n\\(\\sigma\\): daily volatility\n\nWe parameterize \\(\\mu\\) and \\(\\sigma\\) in annualized terms for interpretability.\n\nThe stop-loss rule is:\n\nTrigger: 5% trailing peak-to-trough decline in portfolio value.\nExit: Go to cash immediately upon breach.\nRe-entry: Only when price exceeds the prior peak (“stop-out peak”), ensuring no premature re-risking.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Simulation Framework</span>"
+    ]
+  },
+  {
+    "objectID": "sections/03_simulation_framework.html#implementation",
+    "href": "sections/03_simulation_framework.html#implementation",
+    "title": "4  Simulation Framework",
+    "section": "5.2 Implementation",
+    "text": "5.2 Implementation\n\nimport numpy as np\nimport pandas as pd\nimport matplotlib.pyplot as plt\n\ndef simulate_ar1_paths(n_paths=100, n_days=252*5, mu_ann=0.0, sigma_ann=0.05, rho=0.0, seed=42):\n    np.random.seed(seed)\n    mu = mu_ann / 252\n    sigma = sigma_ann / np.sqrt(252)\n    rets = np.zeros((n_days, n_paths))\n    shocks = np.random.randn(n_days, n_paths)\n    for t in range(1, n_days):\n        rets[t] = mu + rho * (rets[t-1] - mu) + sigma * shocks[t]\n    return rets\n\ndef apply_trailing_stop(returns, stop=0.05):\n    \"\"\"returns: 1D array of daily returns\"\"\"\n    wealth = np.cumprod(1 + returns)\n    peak = np.maximum.accumulate(wealth)\n    in_market = np.ones(len(wealth), dtype=bool)\n    cash = 0.0\n    stop_peak = peak[0]\n    for t in range(1, len(wealth)):\n        if in_market[t-1]:\n            # Check stop breach\n            if (wealth[t] / peak[t] - 1) &lt;= -stop:\n                in_market[t] = False\n                cash = wealth[t]\n                stop_peak = peak[t]\n            else:\n                in_market[t] = True\n        else:\n            # Stay in cash until break above stop_peak\n            if wealth[t] &gt;= stop_peak:\n                in_market[t] = True\n                cash = 0.0\n            else:\n                in_market[t] = False\n    strat_wealth = np.ones(len(wealth))\n    strat_wealth[0] = 1.0\n    in_cash = False\n    for t in range(1, len(wealth)):\n        if in_market[t]:\n            strat_wealth[t] = strat_wealth[t-1] * (1 + returns[t])\n        else:\n            strat_wealth[t] = strat_wealth[t-1]\n    return strat_wealth\n\ndef metrics(wealth):\n    rets = pd.Series(wealth).pct_change().dropna()\n    vol = rets.std() * np.sqrt(252)\n    cagr = (wealth[-1]/wealth[0])**(252/len(wealth))-1\n    sharpe = cagr/vol if vol&gt;0 else np.nan\n    dd = wealth/np.maximum.accumulate(wealth) - 1\n    mdd = dd.min()\n    avgdd = dd[dd&lt;0].mean()\n    return dict(CAGR=cagr, Vol=vol, Sharpe=sharpe, MDD=mdd, AvgDD=avgdd)\n\n# Example: rho = 0.3, mu = 0\nrets = simulate_ar1_paths(n_paths=1, rho=0.3, mu_ann=0.0)\nrets = rets[:,0]\nwealth_bh = np.cumprod(1+rets)\nwealth_stop = apply_trailing_stop(rets)\n\n# Metrics\nprint(\"Buy & Hold:\", metrics(wealth_bh))\nprint(\"Stop-Loss:\", metrics(wealth_stop))\n\n# Plot\nplt.figure(figsize=(8,4))\nplt.plot(wealth_bh, label=\"Buy & Hold\")\nplt.plot(wealth_stop, label=\"5% Trailing Stop\")\nplt.title(\"Example Path — AR(1) ρ=0.3, μ=0\")\nplt.legend()\nplt.tight_layout()\nplt.show()\n\nBuy & Hold: {'CAGR': np.float64(0.04237321398912175), 'Vol': np.float64(0.05150267861021977), 'Sharpe': np.float64(0.8227380620299146), 'MDD': np.float64(-0.13412749497028176), 'AvgDD': np.float64(-0.049024746445191156)}\nStop-Loss: {'CAGR': np.float64(0.022248918103237925), 'Vol': np.float64(0.03398916770371736), 'Sharpe': np.float64(0.6545884941102745), 'MDD': np.float64(-0.06604965292696174), 'AvgDD': np.float64(-0.03989770367663479)}\n\n\n\n\n\nAR(1) simulation — Buy & Hold vs 5% trailing stop-loss",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Simulation Framework</span>"
+    ]
+  },
+  {
+    "objectID": "sections/03_simulation_framework.html#design-choices",
+    "href": "sections/03_simulation_framework.html#design-choices",
+    "title": "4  Simulation Framework",
+    "section": "5.3 Design choices",
+    "text": "5.3 Design choices\nFixed stop threshold: Here set at 5% to illustrate; later sweeps will show sensitivity.\nNo transaction costs: This isolates pure statistical effects; costs will be added in empirical sections.\nIn-sample vs out-of-sample: Since AR(1) parameters are known here, there’s no estimation error. This will not hold in real data.\nIn the next section, we will sweep \\(\\rho\\) from -0.5 to 0.5 and drifts from -10% to +10% annually, holding volatility constant, to see when stops help/hurt on each performance dimension.",
     "crumbs": [
       "<span class='chapter-number'>4</span>  <span class='chapter-title'>Simulation Framework</span>"
     ]

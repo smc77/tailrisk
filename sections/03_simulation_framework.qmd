@@ -12,9 +12,9 @@ We simulate synthetic return paths to test drawdown-mitigation rules under contr
 
 The base process for log-returns is:
 
-\[
+$$
 r_t = \mu + \rho (r_{t-1} - \mu) + \sigma \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0,1)
-\]
+$$
 
 - $\mu$: daily drift  
 - $\rho$: lag-1 autocorrelation coefficient  

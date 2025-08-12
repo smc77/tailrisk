@@ -103,6 +103,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../styles/custom.css">
 </head>
@@ -200,8 +229,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </nav>
 <div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-        
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#simulation-framework" id="toc-simulation-framework" class="nav-link active" data-scroll-target="#simulation-framework"><span class="header-section-number">5</span> Simulation Framework</a>
+  <ul class="collapse">
+  <li><a href="#ar1-process-with-trailing-stop-loss" id="toc-ar1-process-with-trailing-stop-loss" class="nav-link" data-scroll-target="#ar1-process-with-trailing-stop-loss"><span class="header-section-number">5.1</span> AR(1) process with trailing stop-loss</a></li>
+  <li><a href="#implementation" id="toc-implementation" class="nav-link" data-scroll-target="#implementation"><span class="header-section-number">5.2</span> Implementation</a></li>
+  <li><a href="#design-choices" id="toc-design-choices" class="nav-link" data-scroll-target="#design-choices"><span class="header-section-number">5.3</span> Design choices</a></li>
+  </ul></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
@@ -225,79 +265,139 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p>We simulate AR(1) processes and evaluate Buy &amp; Hold vs a 5% trailing stop, reporting CAGR, Vol, Sharpe, MDD with 95% confidence intervals (Monte Carlo).</p>
-<div id="sim-ar1-rho-ci" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np, pandas <span class="im">as</span> pd, matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scripts.simulations <span class="im">import</span> simulate_ar1, trailing_stop_returns, metrics</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">1</span>)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>years <span class="op">=</span> <span class="dv">5</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>rho_grid <span class="op">=</span> np.linspace(<span class="op">-</span><span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="dv">9</span>)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>trials <span class="op">=</span> <span class="dv">30</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>sigma_ann <span class="op">=</span> <span class="fl">0.05</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>mu_ann <span class="op">=</span> <span class="fl">0.0</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_ci(grid, vary<span class="op">=</span><span class="st">"rho"</span>):</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    rows <span class="op">=</span> []</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> val <span class="kw">in</span> grid:</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        bh, sl <span class="op">=</span> [], []</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(trials):</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>            price <span class="op">=</span> simulate_ar1(mu_ann<span class="op">=</span>mu_ann <span class="cf">if</span> vary<span class="op">==</span><span class="st">"rho"</span> <span class="cf">else</span> val,</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                                 rho<span class="op">=</span>val <span class="cf">if</span> vary<span class="op">==</span><span class="st">"rho"</span> <span class="cf">else</span> <span class="fl">0.0</span>,</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>                                 sigma_ann<span class="op">=</span>sigma_ann, years<span class="op">=</span>years, seed<span class="op">=</span><span class="va">None</span>)</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>            bh_rets <span class="op">=</span> price.pct_change().dropna()</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>            sl_rets <span class="op">=</span> trailing_stop_returns(price, stop_pct<span class="op">=</span><span class="fl">0.05</span>).iloc[<span class="dv">1</span>:]</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>            bh.append(metrics(bh_rets))<span class="op">;</span> sl.append(metrics(sl_rets))</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> name, coll <span class="kw">in</span> [(<span class="st">"BuyHold"</span>, bh), (<span class="st">"Stop5pct"</span>, sl)]:</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>            dfm <span class="op">=</span> pd.DataFrame(coll)</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> m <span class="kw">in</span> [<span class="st">"CAGR"</span>,<span class="st">"Vol"</span>,<span class="st">"MDD"</span>,<span class="st">"Sharpe"</span>]:</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>                mu <span class="op">=</span> dfm[m].mean()<span class="op">;</span> se <span class="op">=</span> dfm[m].std(ddof<span class="op">=</span><span class="dv">1</span>)<span class="op">/</span>np.sqrt(<span class="bu">len</span>(dfm))</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>                rows.append({<span class="st">"Strategy"</span>:name, <span class="st">"x"</span>:val, <span class="st">"Metric"</span>:m,</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>                             <span class="st">"Mean"</span>:mu, <span class="st">"Low"</span>:mu<span class="op">-</span><span class="fl">1.96</span><span class="op">*</span>se, <span class="st">"High"</span>:mu<span class="op">+</span><span class="fl">1.96</span><span class="op">*</span>se})</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pd.DataFrame(rows)</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> run_ci(rho_grid, vary<span class="op">=</span><span class="st">"rho"</span>)</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m, ylab <span class="kw">in</span> [(<span class="st">"CAGR"</span>,<span class="st">"CAGR"</span>),(<span class="st">"Vol"</span>,<span class="st">"Annualized Vol"</span>),(<span class="st">"MDD"</span>,<span class="st">"Max Drawdown"</span>),(<span class="st">"Sharpe"</span>,<span class="st">"Sharpe"</span>)]:</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    plt.figure()</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> strat <span class="kw">in</span> [<span class="st">"BuyHold"</span>,<span class="st">"Stop5pct"</span>]:</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>        sub <span class="op">=</span> df[(df[<span class="st">"Metric"</span>]<span class="op">==</span>m) <span class="op">&amp;</span> (df[<span class="st">"Strategy"</span>]<span class="op">==</span>strat)].sort_values(<span class="st">"x"</span>)</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>        plt.plot(sub[<span class="st">"x"</span>], sub[<span class="st">"Mean"</span>], label<span class="op">=</span>strat)</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>        plt.fill_between(sub[<span class="st">"x"</span>], sub[<span class="st">"Low"</span>], sub[<span class="st">"High"</span>], alpha<span class="op">=</span><span class="fl">0.2</span>)</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    plt.xlabel(<span class="st">"rho"</span>)<span class="op">;</span> plt.ylabel(ylab)<span class="op">;</span> plt.title(<span class="ss">f"</span><span class="sc">{</span>ylab<span class="sc">}</span><span class="ss"> vs rho (μ=0)"</span>)</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    plt.legend()<span class="op">;</span> plt.tight_layout()<span class="op">;</span> plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="simulation-framework" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Simulation Framework</h1>
+<p>We simulate synthetic return paths to test drawdown-mitigation rules under controlled statistical environments. This enables us to:</p>
+<ul>
+<li>Hold volatility constant while varying drift or autocorrelation.</li>
+<li>Quantify how stop-loss rules perform relative to buy-and-hold when return persistence changes.</li>
+<li>Observe how MDD, average drawdown, volatility, and Sharpe ratio respond to rule changes.</li>
+</ul>
+<section id="ar1-process-with-trailing-stop-loss" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="ar1-process-with-trailing-stop-loss"><span class="header-section-number">5.1</span> AR(1) process with trailing stop-loss</h2>
+<p>The base process for log-returns is:</p>
+<p><span class="math display">\[
+r_t = \mu + \rho (r_{t-1} - \mu) + \sigma \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0,1)
+\]</span></p>
+<ul>
+<li><span class="math inline">\(\mu\)</span>: daily drift<br>
+</li>
+<li><span class="math inline">\(\rho\)</span>: lag-1 autocorrelation coefficient<br>
+</li>
+<li><span class="math inline">\(\sigma\)</span>: daily volatility<br>
+</li>
+<li>We parameterize <span class="math inline">\(\mu\)</span> and <span class="math inline">\(\sigma\)</span> in <strong>annualized</strong> terms for interpretability.</li>
+</ul>
+<p>The stop-loss rule is:</p>
+<ul>
+<li><strong>Trigger</strong>: 5% trailing peak-to-trough decline in portfolio value.</li>
+<li><strong>Exit</strong>: Go to cash immediately upon breach.</li>
+<li><strong>Re-entry</strong>: Only when price exceeds the prior peak (“stop-out peak”), ensuring no premature re-risking.</li>
+</ul>
+<hr>
+</section>
+<section id="implementation" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="implementation"><span class="header-section-number">5.2</span> Implementation</h2>
+<div id="cell-simulate-ar1" class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> simulate_ar1_paths(n_paths<span class="op">=</span><span class="dv">100</span>, n_days<span class="op">=</span><span class="dv">252</span><span class="op">*</span><span class="dv">5</span>, mu_ann<span class="op">=</span><span class="fl">0.0</span>, sigma_ann<span class="op">=</span><span class="fl">0.05</span>, rho<span class="op">=</span><span class="fl">0.0</span>, seed<span class="op">=</span><span class="dv">42</span>):</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    np.random.seed(seed)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    mu <span class="op">=</span> mu_ann <span class="op">/</span> <span class="dv">252</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    sigma <span class="op">=</span> sigma_ann <span class="op">/</span> np.sqrt(<span class="dv">252</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    rets <span class="op">=</span> np.zeros((n_days, n_paths))</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    shocks <span class="op">=</span> np.random.randn(n_days, n_paths)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, n_days):</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        rets[t] <span class="op">=</span> mu <span class="op">+</span> rho <span class="op">*</span> (rets[t<span class="op">-</span><span class="dv">1</span>] <span class="op">-</span> mu) <span class="op">+</span> sigma <span class="op">*</span> shocks[t]</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> rets</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> apply_trailing_stop(returns, stop<span class="op">=</span><span class="fl">0.05</span>):</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""returns: 1D array of daily returns"""</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    wealth <span class="op">=</span> np.cumprod(<span class="dv">1</span> <span class="op">+</span> returns)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    peak <span class="op">=</span> np.maximum.accumulate(wealth)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    in_market <span class="op">=</span> np.ones(<span class="bu">len</span>(wealth), dtype<span class="op">=</span><span class="bu">bool</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    cash <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    stop_peak <span class="op">=</span> peak[<span class="dv">0</span>]</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="bu">len</span>(wealth)):</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> in_market[t<span class="op">-</span><span class="dv">1</span>]:</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Check stop breach</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> (wealth[t] <span class="op">/</span> peak[t] <span class="op">-</span> <span class="dv">1</span>) <span class="op">&lt;=</span> <span class="op">-</span>stop:</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>                in_market[t] <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>                cash <span class="op">=</span> wealth[t]</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>                stop_peak <span class="op">=</span> peak[t]</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>                in_market[t] <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Stay in cash until break above stop_peak</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> wealth[t] <span class="op">&gt;=</span> stop_peak:</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>                in_market[t] <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>                cash <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>                in_market[t] <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    strat_wealth <span class="op">=</span> np.ones(<span class="bu">len</span>(wealth))</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    strat_wealth[<span class="dv">0</span>] <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    in_cash <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> t <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="bu">len</span>(wealth)):</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> in_market[t]:</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>            strat_wealth[t] <span class="op">=</span> strat_wealth[t<span class="op">-</span><span class="dv">1</span>] <span class="op">*</span> (<span class="dv">1</span> <span class="op">+</span> returns[t])</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>            strat_wealth[t] <span class="op">=</span> strat_wealth[t<span class="op">-</span><span class="dv">1</span>]</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> strat_wealth</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> metrics(wealth):</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    rets <span class="op">=</span> pd.Series(wealth).pct_change().dropna()</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    vol <span class="op">=</span> rets.std() <span class="op">*</span> np.sqrt(<span class="dv">252</span>)</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    cagr <span class="op">=</span> (wealth[<span class="op">-</span><span class="dv">1</span>]<span class="op">/</span>wealth[<span class="dv">0</span>])<span class="op">**</span>(<span class="dv">252</span><span class="op">/</span><span class="bu">len</span>(wealth))<span class="op">-</span><span class="dv">1</span></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    sharpe <span class="op">=</span> cagr<span class="op">/</span>vol <span class="cf">if</span> vol<span class="op">&gt;</span><span class="dv">0</span> <span class="cf">else</span> np.nan</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    dd <span class="op">=</span> wealth<span class="op">/</span>np.maximum.accumulate(wealth) <span class="op">-</span> <span class="dv">1</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>    mdd <span class="op">=</span> dd.<span class="bu">min</span>()</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>    avgdd <span class="op">=</span> dd[dd<span class="op">&lt;</span><span class="dv">0</span>].mean()</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">dict</span>(CAGR<span class="op">=</span>cagr, Vol<span class="op">=</span>vol, Sharpe<span class="op">=</span>sharpe, MDD<span class="op">=</span>mdd, AvgDD<span class="op">=</span>avgdd)</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a><span class="co"># Example: rho = 0.3, mu = 0</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>rets <span class="op">=</span> simulate_ar1_paths(n_paths<span class="op">=</span><span class="dv">1</span>, rho<span class="op">=</span><span class="fl">0.3</span>, mu_ann<span class="op">=</span><span class="fl">0.0</span>)</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>rets <span class="op">=</span> rets[:,<span class="dv">0</span>]</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>wealth_bh <span class="op">=</span> np.cumprod(<span class="dv">1</span><span class="op">+</span>rets)</span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>wealth_stop <span class="op">=</span> apply_trailing_stop(rets)</span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a><span class="co"># Metrics</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Buy &amp; Hold:"</span>, metrics(wealth_bh))</span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Stop-Loss:"</span>, metrics(wealth_stop))</span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot</span></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>plt.figure(figsize<span class="op">=</span>(<span class="dv">8</span>,<span class="dv">4</span>))</span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>plt.plot(wealth_bh, label<span class="op">=</span><span class="st">"Buy &amp; Hold"</span>)</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>plt.plot(wealth_stop, label<span class="op">=</span><span class="st">"5% Trailing Stop"</span>)</span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"Example Path — AR(1) ρ=0.3, μ=0"</span>)</span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Buy &amp; Hold: {'CAGR': np.float64(0.04237321398912175), 'Vol': np.float64(0.05150267861021977), 'Sharpe': np.float64(0.8227380620299146), 'MDD': np.float64(-0.13412749497028176), 'AvgDD': np.float64(-0.049024746445191156)}
+Stop-Loss: {'CAGR': np.float64(0.022248918103237925), 'Vol': np.float64(0.03398916770371736), 'Sharpe': np.float64(0.6545884941102745), 'MDD': np.float64(-0.06604965292696174), 'AvgDD': np.float64(-0.03989770367663479)}</code></pre>
+</div>
 <div class="cell-output cell-output-display">
-<div id="sim-ar1-rho-ci-1" class="quarto-figure quarto-figure-center anchored">
+<div id="simulate-ar1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
-<p><img src="03_simulation_framework_files/figure-html/sim-ar1-rho-ci-output-1.png" width="662" height="470" class="figure-img"></p>
-<figcaption>AR(1), μ=0: Metrics vs ρ with 95% CI (example run)</figcaption>
+<p><img src="03_simulation_framework_files/figure-html/simulate-ar1-output-2.png" width="758" height="374" class="figure-img"></p>
+<figcaption>AR(1) simulation — Buy &amp; Hold vs 5% trailing stop-loss</figcaption>
 </figure>
 </div>
 </div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="03_simulation_framework_files/figure-html/sim-ar1-rho-ci-output-2.png" id="sim-ar1-rho-ci-2" width="662" height="470" class="figure-img"></p>
-</figure>
 </div>
-</div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="03_simulation_framework_files/figure-html/sim-ar1-rho-ci-output-3.png" id="sim-ar1-rho-ci-3" width="662" height="470" class="figure-img"></p>
-</figure>
-</div>
-</div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="03_simulation_framework_files/figure-html/sim-ar1-rho-ci-output-4.png" id="sim-ar1-rho-ci-4" width="662" height="470" class="figure-img"></p>
-</figure>
-</div>
-</div>
-</div>
+</section>
+<section id="design-choices" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="design-choices"><span class="header-section-number">5.3</span> Design choices</h2>
+<p>Fixed stop threshold: Here set at 5% to illustrate; later sweeps will show sensitivity.</p>
+<p>No transaction costs: This isolates pure statistical effects; costs will be added in empirical sections.</p>
+<p>In-sample vs out-of-sample: Since AR(1) parameters are known here, there’s no estimation error. This will not hold in real data.</p>
+<p>In the next section, we will sweep <span class="math inline">\(\rho\)</span> from -0.5 to 0.5 and drifts from -10% to +10% annually, holding volatility constant, to see when stops help/hurt on each performance dimension.</p>
 
 
+</section>
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
