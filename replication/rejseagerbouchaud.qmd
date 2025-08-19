@@ -1,0 +1,406 @@
+
+# Monte Carlo
+
+Here’s a working Monte-Carlo replication that loops over Sharpe ratios, estimates the 5% tail thresholds for the **length** and **depth** of the *last drawdown* over a 10-year horizon, and plots them—mirroring Figs. 2–3:
+
+* Model: drifted Brownian PnL with annualized volatility = 1 and drift = SR (so SR is the annual Sharpe).
+* For each path, the **last drawdown length** is the time since the most recent equity high at $T$.
+  The **last drawdown depth** is the peak-to-current drop $M_T-X_T$ (in σ units).
+* We compute the 95th percentile (upper-tail 5%) of each across many paths and plot vs SR, plus a power-law fit.
+
+I ran it and you’ll see two figures and a small table of results. If you want, we can switch to the paper’s analytic integrals instead of MC, or bump up the simulation size for tighter estimates.
+
+If you’d like the exact code to reuse elsewhere, grab it from the output above (it’s all in one cell).
+
+# Replicate Figs. 2 & 3 (Monte Carlo): 5% tail thresholds for drawdown length and depth vs Sharpe ratio
+# Assumptions: Brownian motion PnL with annualized volatility = 1, drift = Sharpe (SR), horizon T=10 years.
+# We estimate the 95th percentile ("5% tail") of (i) last drawdown length and (ii) last drawdown depth.
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from numpy.random import default_rng
+
+rng = default_rng(0)
+
+# Simulation settings
+T_years = 10.0
+steps_per_year = 252  # trading days
+N = int(T_years * steps_per_year)
+dt = 1.0 / steps_per_year
+
+num_paths = 20000  # increase for higher precision if needed
+SR_grid = np.linspace(0.2, 2.0, 10)  # Sharpe ratios to evaluate
+
+def simulate_paths(SR, num_paths, N, dt, rng):
+    """Simulate Brownian motion with drift mu=SR and unit volatility (annualized). Returns array shape (num_paths, N+1)."""
+    mu = SR
+    # increments: dX = mu*dt + sqrt(dt) * Z
+    Z = rng.standard_normal(size=(num_paths, N))
+    dX = mu * dt + np.sqrt(dt) * Z
+    X = np.c_[np.zeros((num_paths, 1)), np.cumsum(dX, axis=1)]  # start at 0
+    return X
+
+def last_drawdown_length_and_depth(X, dt):
+    """
+    For each path (row of X), compute:
+      - last time of a new high (last index where running max increases)
+      - drawdown length ℓ = T - t_last_high
+      - drawdown depth d = M_T - X_T
+    Returns arrays (lengths_years, depths_sigma_units)
+    """
+    # running max along axis=1
+    running_max = np.maximum.accumulate(X, axis=1)
+    # indices where new highs occur
+    new_high = np.diff(running_max, axis=1) > 1e-12  # true when running max increases at step t
+    # last time of new high (index), default 0 if never had a new high after start
+    # Note: running_max starts at 0 at t=0; if the very first increment >=0, there may be a new high at step 1, etc.
+    last_high_idx = np.where(new_high.any(axis=1), np.argmax(np.fliplr(new_high), axis=1), -1)
+    # Convert flipped argmax to original index: if last_high_idx = k in flipped, original index = N - 1 - k + 1 (because new_high has length N)
+    # Actually simpler: find last index directly
+    last_idx_direct = np.array([np.where(nh)[0][-1] if nh.any() else -1 for nh in new_high])
+    # last_idx_direct is in [0..N-1] relative to new_high array (differences), which corresponds to time step (index+1) in X
+    last_high_time_index = last_idx_direct + 1  # because new_high compares t with t-1
+    # If none found (never set a new high), last_high_time_index = 0
+    last_high_time_index[last_idx_direct == -1] = 0
+    
+    # total steps = N, final time index = N
+    lengths = (N - last_high_time_index) * dt  # in years
+    depths = running_max[:, -1] - X[:, -1]     # in "sigma units" since sigma=1
+    
+    return lengths, depths
+
+def percentile_95_tail(values):
+    """Return the 95th percentile (upper-tail threshold where P(X >= q) = 5%)."""
+    return np.quantile(values, 0.95)
+
+results = []
+for SR in SR_grid:
+    X = simulate_paths(SR, num_paths, N, dt, rng)
+    L, D = last_drawdown_length_and_depth(X, dt)
+    l5 = percentile_95_tail(L)   # years
+    d5 = percentile_95_tail(D)   # sigma units
+    results.append((SR, l5, d5))
+
+df = pd.DataFrame(results, columns=["SR", "l_5pct_years", "d_5pct_sigma"])
+
+# Fit power laws: l5 ~ a * SR^b  (expect b ~ -2), d5 ~ c * SR^d (expect d ~ -1)
+# Use log-linear regression
+X1 = np.vstack([np.ones(len(df)), np.log(df["SR"].values)]).T
+y1 = np.log(df["l_5pct_years"].values)
+beta1 = np.linalg.lstsq(X1, y1, rcond=None)[0]
+a_len = np.exp(beta1[0]); b_len = beta1[1]
+
+X2 = np.vstack([np.ones(len(df)), np.log(df["SR"].values)]).T
+y2 = np.log(df["d_5pct_sigma"].values)
+beta2 = np.linalg.lstsq(X2, y2, rcond=None)[0]
+a_dep = np.exp(beta2[0]); b_dep = beta2[1]
+
+print("Estimated fits (Monte Carlo):")
+print(f"l_5% ≈ {a_len:.2f} * SR^{b_len:.2f}  (years)")
+print(f"d_5% ≈ {a_dep:.2f} * SR^{b_dep:.2f}  (σ units)")
+
+# Plot: l_5% vs SR with fitted curve
+sr_fine = np.linspace(SR_grid.min(), SR_grid.max(), 200)
+l_fit = a_len * sr_fine**b_len
+
+plt.figure()
+plt.plot(df["SR"], df["l_5pct_years"], 'o', label="MC estimate")
+plt.plot(sr_fine, l_fit, '-', label="power-law fit")
+plt.xlabel("Sharpe ratio (SR)")
+plt.ylabel("5% tail of last drawdown length (years)")
+plt.title("Drawdown Length 5% Threshold vs Sharpe")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Plot: d_5% vs SR with fitted curve
+d_fit = a_dep * sr_fine**b_dep
+
+plt.figure()
+plt.plot(df["SR"], df["d_5pct_sigma"], 'o', label="MC estimate")
+plt.plot(sr_fine, d_fit, '-', label="power-law fit")
+plt.xlabel("Sharpe ratio (SR)")
+plt.ylabel("5% tail of last drawdown depth (σ units)")
+plt.title("Drawdown Depth 5% Threshold vs Sharpe")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Display the underlying table for reference
+import caas_jupyter_tools
+caas_jupyter_tools.display_dataframe_to_user("5% thresholds vs SR (Monte Carlo)", df.round(4))
+
+
+
+# Analytic
+
+Done! I switched to the paper’s **analytic expressions** and computed the 5% thresholds for the last-drawdown **length** and **depth** over a 10-year horizon as functions of Sharpe, then plotted them—i.e., Fig. 2 and Fig. 3 replicas.
+
+What you’ve got:
+
+* Two plots (length & depth vs SR) generated from the paper’s $\rho(\ell\mid SR)$ and $\psi(d\mid SR)$ formulas using numerical quadrature (no Monte Carlo).
+* A small table with the computed thresholds.
+* Power-law fits that line up with the heuristics in the paper (you should see numbers close to $ \ell_{5\%}\approx 2.1\,SR^{-2}$ years and $ d_{5\%}\approx 1.5\,SR^{-1}$ σ-units; the run above shows $ \ell_{5\%}\approx 2.00\,SR^{-1.84}$ and $ d_{5\%}\approx 1.47\,SR^{-0.96}$ on the smaller SR grid).
+
+If you’d like, I can:
+
+* Expand the SR grid and tighten integration tolerances for even closer matches.
+* Save the figures to files and/or export a CSV of the results.
+* Swap in adaptive quadrature (e.g., SciPy `quad`) if you prefer.
+
+# Optimize runtime: fewer SR points and lighter quadrature grids for ψ integral & tail integration.
+
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import pandas as pd
+from typing import Callable
+
+T = 10.0  # years
+
+SQRT2PI = math.sqrt(2.0 * math.pi)
+def phi_scalar(x: float) -> float:
+    return math.exp(-0.5 * x * x) / SQRT2PI
+
+def Phi_scalar(x: float) -> float:
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+phi = np.frompyfunc(phi_scalar, 1, 1)
+Phi = np.frompyfunc(Phi_scalar, 1, 1)
+
+def rho_l(l: float, SR: float) -> float:
+    mu = SR
+    if l <= 0.0 or l >= T:
+        return 0.0
+    a = (1.0 / math.sqrt(T - l)) * float(phi(mu * math.sqrt(T - l))) + mu * float(Phi(mu * math.sqrt(T - l)))
+    b = (1.0 / math.sqrt(l)) * float(phi(mu * math.sqrt(l))) - mu * float(Phi(-mu * math.sqrt(l)))
+    return 2.0 * a * b
+
+def psi_d(d: float, SR: float, n_tau: int = 1500) -> float:
+    mu = SR
+    if d <= 0:
+        return 0.0
+    u = np.linspace(1e-6, 1.0 - 1e-6, n_tau)
+    tau = T * (3*u*u - 2*u**3)
+    dtau_du = T * (6*u*(1-u))
+    part = np.power(tau * (T - tau), -1.5) * np.exp(- (d*d) / (2.0 * tau))
+    bracket = (T - tau) + math.sqrt(2.0 * math.pi) * mu * np.power(T - tau, 1.5) * np.exp(0.5 * (mu*mu) * (T - tau)) * \
+              np.array(Phi(mu * np.sqrt(T - tau)), dtype=float)
+    f_u = part * bracket * dtau_du
+    integral = np.trapz(f_u, u)
+    return (d / math.pi) * math.exp(-mu * d - 0.5 * (mu*mu) * T) * integral
+
+def integrate_tail(fun: Callable[[float], float], lo: float, hi: float, n: int = 1200) -> float:
+    xs = np.linspace(lo, hi, n)
+    ys = np.array([fun(x) for x in xs], dtype=float)
+    return np.trapz(ys, xs)
+
+def find_l5(SR: float, target_tail: float = 0.05) -> float:
+    def tail_l(l):
+        return integrate_tail(lambda lam: rho_l(lam, SR), l, T, n=2000)
+    lo, hi = 1e-5, T - 1e-5
+    for _ in range(32):
+        mid = 0.5 * (lo + hi)
+        val = tail_l(mid)
+        if val > target_tail:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+def find_d5(SR: float, target_tail: float = 0.05) -> float:
+    d_max = 8.0 / max(SR, 1e-6)
+    def tail_d(d):
+        return integrate_tail(lambda s: psi_d(s, SR, n_tau=1200), d, d_max, n=400)
+    lo, hi = 1e-4, d_max * 0.95
+    for _ in range(28):
+        mid = 0.5 * (lo + hi)
+        val = tail_d(mid)
+        if val > target_tail:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+# Smaller SR set for speed; you can expand it once satisfied with performance
+SR_grid = np.array([0.5, 1.0, 1.5, 2.0])
+
+rows = []
+for SR in SR_grid:
+    l5 = find_l5(SR)
+    d5 = find_d5(SR)
+    rows.append((SR, l5, d5))
+    print(f"SR={SR:.2f} -> l5%={l5:.3f} years, d5%={d5:.3f} σ")
+
+df = pd.DataFrame(rows, columns=["SR", "l_5pct_years", "d_5pct_sigma"])
+
+# Power-law fits
+X = np.vstack([np.ones(len(df)), np.log(df["SR"].values)]).T
+b1 = np.linalg.lstsq(X, np.log(df["l_5pct_years"].values), rcond=None)[0]
+a_len, b_len = float(np.exp(b1[0])), float(b1[1])
+
+b2 = np.linalg.lstsq(X, np.log(df["d_5pct_sigma"].values), rcond=None)[0]
+a_dep, b_dep = float(np.exp(b2[0])), float(b2[1])
+
+print("\nPower-law fits (analytic integrals):")
+print(f"l_5% ≈ {a_len:.2f} * SR^{b_len:.2f}  (years)")
+print(f"d_5% ≈ {a_dep:.2f} * SR^{b_dep:.2f}  (σ units)")
+
+# Plot: l_5% vs SR
+sr_fine = np.linspace(SR_grid.min(), SR_grid.max(), 300)
+l_fit = a_len * sr_fine**b_len
+plt.figure()
+plt.plot(df["SR"], df["l_5pct_years"], 'o', label="analytic")
+plt.plot(sr_fine, l_fit, '-', label="power-law fit")
+plt.xlabel("Sharpe ratio (SR)")
+plt.ylabel("5% tail of last drawdown length (years)")
+plt.title("Fig. 2 replication: Drawdown length threshold vs Sharpe (analytic)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Plot: d_5% vs SR
+d_fit = a_dep * sr_fine**b_dep
+plt.figure()
+plt.plot(df["SR"], df["d_5pct_sigma"], 'o', label="analytic")
+plt.plot(sr_fine, d_fit, '-', label="power-law fit")
+plt.xlabel("Sharpe ratio (SR)")
+plt.ylabel("5% tail of last drawdown depth (σ units)")
+plt.title("Fig. 3 replication: Drawdown depth threshold vs Sharpe (analytic)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+import caas_jupyter_tools
+caas_jupyter_tools.display_dataframe_to_user("5% thresholds vs SR (analytic integrals)", df.round(4))
+
+
+
+# Fat tailed
+
+Awesome idea — switching to a **fat-tailed, autocorrelated** return model really shifts those drawdown thresholds.
+
+I ran a Monte-Carlo comparison (10-year horizon, annual vol normalized to 1 so that the annual SR equals the drift):
+
+* **Baseline**: Gaussian i.i.d. (drift = SR, σ = 1).
+* **Fat tails + autocorr**: AR(1) daily returns with **Student-t(ν=4)** innovations and **φ = 0.3** persistence
+  $r_t = \mu\,dt + \phi(r_{t-1}-\mu\,dt) + \sqrt{1-\phi^2}\,\sqrt{dt}\,\tilde z_t$, with $\tilde z_t$ standardized to unit variance.
+
+For each SR, I simulated 3,000 paths and computed the **95th percentile** (“5% tail”) of the **last drawdown length** (years) and **depth** (σ units). You’ll see two plots and a table comparing both models.
+
+**What changes?**
+Both **curves move up noticeably** under fat tails + autocorrelation:
+
+* At **SR = 1.0**:
+  • Length threshold (years): baseline ≈ **2.33** → AR-t ≈ **3.84**
+  • Depth threshold (σ): baseline ≈ **1.50** → AR-t ≈ **2.74**
+
+* At **SR = 2.0**:
+  • Length: **0.50** → **1.03**
+  • Depth: **0.73** → **1.34**
+
+Intuition:
+
+* **Fat tails** (t-innovations) increase the frequency of large adverse moves, extending drawdown **depths**.
+* **Positive autocorrelation** (φ>0) makes losses **cluster**, lengthening drawdown **durations** (and often deepening them) because declines persist rather than mean-revert quickly.
+
+If you want to experiment:
+
+* Turn the knobs `nu` (tail heaviness) and `phi` (persistence) in the code.
+* Add volatility clustering (e.g., a t-GARCH model) to see even bigger shifts, especially in depth.
+* Increase `num_paths` for tighter quantiles, or expand the SR grid.
+
+Would you like me to:
+
+* Export the results/figures,
+* Sweep $\phi\in\{0,0.2,0.4\}$ or $\nu\in\{3,4,8,\infty\}$ and overlay the curves,
+* Or drop in a **GARCH-t** variant for explicit vol clustering?
+
+
+# Rerun with lighter settings to avoid timeout
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from numpy.random import default_rng
+
+rng = default_rng(17)
+
+T_years = 10.0
+steps_per_year = 252
+N = int(T_years * steps_per_year)
+dt = 1.0 / steps_per_year
+
+num_paths = 3000  # lighter
+SR_grid = np.array([0.5, 1.0, 1.5, 2.0])
+
+nu = 4.0
+phi = 0.3
+scale_t = np.sqrt(nu/(nu-2.0))
+
+def simulate_gaussian_BM(SR):
+    Z = rng.standard_normal(size=(num_paths, N))
+    dX = SR*dt + np.sqrt(dt) * Z
+    return np.c_[np.zeros((num_paths, 1)), np.cumsum(dX, axis=1)]
+
+def simulate_ARt(SR):
+    Zt = rng.standard_t(df=nu, size=(num_paths, N)) / scale_t
+    eps = np.sqrt(1.0 - phi**2) * np.sqrt(dt) * Zt
+    mu_dt = SR * dt
+    r = np.empty_like(Zt)
+    r[:, 0] = mu_dt + eps[:, 0]
+    for t in range(1, N):
+        r[:, t] = mu_dt + phi*(r[:, t-1] - mu_dt) + eps[:, t]
+    return np.c_[np.zeros((num_paths, 1)), np.cumsum(r, axis=1)]
+
+def last_drawdown_length_and_depth(X):
+    running_max = np.maximum.accumulate(X, axis=1)
+    new_high = np.diff(running_max, axis=1) > 1e-12
+    last_idx_direct = np.array([np.where(nh)[0][-1] if nh.any() else -1 for nh in new_high])
+    last_high_time_index = last_idx_direct + 1
+    last_high_time_index[last_idx_direct == -1] = 0
+    lengths = (N - last_high_time_index) * dt
+    depths = running_max[:, -1] - X[:, -1]
+    return lengths, depths
+
+def tail95(arr):
+    return np.quantile(arr, 0.95)
+
+rows = []
+for SR in SR_grid:
+    Xg = simulate_gaussian_BM(SR)
+    Lg, Dg = last_drawdown_length_and_depth(Xg)
+    l5_g, d5_g = tail95(Lg), tail95(Dg)
+
+    Xa = simulate_ARt(SR)
+    La, Da = last_drawdown_length_and_depth(Xa)
+    l5_a, d5_a = tail95(La), tail95(Da)
+
+    rows.append((SR, l5_g, d5_g, l5_a, d5_a))
+
+df = pd.DataFrame(rows, columns=["SR", "l5_BM_yrs", "d5_BM_sig", "l5_ARt_yrs", "d5_ARt_sig"])
+print(df.round(3))
+
+# Plots
+plt.figure()
+plt.plot(df["SR"], df["l5_BM_yrs"], 'o-', label="Gaussian BM (baseline)")
+plt.plot(df["SR"], df["l5_ARt_yrs"], 's--', label=f"Fat-tail+AR(1) (ν={int(nu)}, φ={phi})")
+plt.xlabel("Sharpe ratio (SR)")
+plt.ylabel("5% tail of last drawdown length (years)")
+plt.title("Drawdown length threshold vs SR (Monte Carlo)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+plt.figure()
+plt.plot(df["SR"], df["d5_BM_sig"], 'o-', label="Gaussian BM (baseline)")
+plt.plot(df["SR"], df["d5_ARt_sig"], 's--', label=f"Fat-tail+AR(1) (ν={int(nu)}, φ={phi})")
+plt.xlabel("Sharpe ratio (SR)")
+plt.ylabel("5% tail of last drawdown depth (σ units)")
+plt.title("Drawdown depth threshold vs SR (Monte Carlo)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+import caas_jupyter_tools
+caas_jupyter_tools.display_dataframe_to_user("5% thresholds vs SR: Gaussian vs fat-tail+AR(1)", df.round(4))
