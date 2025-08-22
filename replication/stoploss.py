@@ -450,3 +450,147 @@ import caas_jupyter_tools
 caas_jupyter_tools.display_dataframe_to_user("Experiment 1 (vary E, K=1) — daily, log grid", dfE.round(4))
 caas_jupyter_tools.display_dataframe_to_user("Experiment 2 (vary K, E=1) — daily, log grid", dfK.round(4))
 
+#
+#
+#
+
+# Daily rebalancing with re-entry relative to a RUNNING LOW (after the stop), plus target lines
+# Settings: μ=2.5% p.a., ρ=0.25 (daily), σ=5% p.a., Student-t(ν=4), K=0.5, tc=5 bps/side
+# Top: wealth, peak, stop markers, re-entry markers, two target lines:
+#      1) static stop-price target: stop_price * (1 + K * sigma_at_stop)
+#      2) dynamic running-low target: running_low * (1 + K * sigma_at_stop)
+# Bottom: cumulative P&L for BH, stop (gross), stop (net)
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(20250822)
+
+# --- Parameters ---
+years = 10
+days_per_year = 252
+N = years * days_per_year
+mu_ann = 0.025
+rho = 0.25
+sigma_ann = 0.05
+sigma_d = sigma_ann / np.sqrt(days_per_year)
+mu_d = mu_ann / days_per_year
+nu = 4.0
+scale_t = np.sqrt(nu/(nu-2.0))
+K = 0.5
+tc = 0.0005
+
+# --- Simulate daily AR(1)-t returns (one path) ---
+Zt = rng.standard_t(df=nu, size=N) / scale_t  # unit variance
+eps = np.sqrt(1.0 - rho**2) * sigma_d * Zt
+R = np.empty(N)
+R[0] = mu_d + eps[0]
+for t in range(1, N):
+    R[t] = mu_d + rho*(R[t-1] - mu_d) + eps[t]
+
+# --- Rolling annualized vol (252d window) ---
+def rolling_ann_vol_1d(r, win=252):
+    out = np.empty_like(r, dtype=float)
+    for t in range(len(r)):
+        lo = max(0, t - win + 1)
+        window = r[lo:t+1]
+        ddof = 1 if (t-lo+1) > 1 else 0
+        s = np.std(window, ddof=ddof)
+        out[t] = s * np.sqrt(days_per_year)
+    return out
+
+vol_ann = rolling_ann_vol_1d(R, win=252)
+
+# --- Wealth / drawdown ---
+W_bh = np.insert(np.cumprod(1.0 + R), 0, 1.0)  # include t=0
+P = W_bh.copy()
+M = np.maximum.accumulate(P)
+DD = 1.0 - P / M
+
+# --- Apply stop-until-recover (relative to running low), with gross & net ---
+expo_g = np.ones(N)
+expo_n = np.ones(N)
+costs_g = np.zeros(N)
+costs_n = np.zeros(N)
+
+stopped = False
+stop_price = None
+sigma_at_stop = None
+running_low = None
+
+stop_idx = []
+reenter_idx = []
+
+# Lines to plot (aligned with P: length N+1)
+static_target_line = np.full(N+1, np.nan)    # stop_price * (1 + K*sigma_at_stop)
+running_low_line   = np.full(N+1, np.nan)    # running_low * (1 + K*sigma_at_stop)
+
+for t in range(1, N+1):  # price index; return index t-1
+    # If stopped, update running low and the dynamic target
+    if stopped:
+        running_low = min(running_low, P[t])
+        running_low_line[t:] = running_low * (1.0 + K * sigma_at_stop)
+        # Re-entry test vs running-low target
+        if P[t] >= running_low * (1.0 + K * sigma_at_stop):
+            if t < N:
+                expo_g[t] = 1.0
+                expo_n[t] = 1.0
+                costs_n[t] -= tc
+            stopped = False
+            reenter_idx.append(t)
+    # Trigger test (vs running peak DD threshold)
+    thr_t = K * vol_ann[t-1]
+    if (not stopped) and (DD[t] > thr_t):
+        if t < N:
+            expo_g[t] = 0.0
+            expo_n[t] = 0.0
+            costs_n[t] -= tc
+        stopped = True
+        stop_idx.append(t)
+        stop_price = P[t]
+        sigma_at_stop = thr_t / K   # equals vol_ann[t-1]
+        running_low = P[t]          # reset running low at stop time
+        # set static and dynamic targets from this stop onward
+        static_target_line[t:]  = stop_price  * (1.0 + K * sigma_at_stop)
+        running_low_line[t:]    = running_low * (1.0 + K * sigma_at_stop)
+    # Persist 0 exposure if still stopped
+    if stopped and t < N:
+        expo_g[t] = 0.0
+        expo_n[t] = 0.0
+
+# Strategy returns and P&L
+R_gross = expo_g * R + costs_g
+R_net   = expo_n * R + costs_n
+W_gross = np.insert(np.cumprod(1.0 + R_gross), 0, 1.0)
+W_net   = np.insert(np.cumprod(1.0 + R_net),   0, 1.0)
+
+PnL_bh = P - 1.0
+PnL_g  = W_gross - 1.0
+PnL_n  = W_net - 1.0
+
+# --- Plot ---
+tgrid = np.arange(N+1)
+fig, axs = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+
+# Top: wealth & target lines
+axs[0].plot(tgrid, P, label="Wealth (Price)")
+axs[0].plot(tgrid, M, linestyle="--", label="Running peak")
+axs[0].plot(tgrid, static_target_line, linestyle="-.", label="Static target (stop_price·(1+K·σ_stop))")
+axs[0].plot(tgrid, running_low_line, linestyle=":",   label="Dynamic target (running_low·(1+K·σ_stop))")
+axs[0].scatter(stop_idx, P[stop_idx], marker="x", label="Stops")
+axs[0].scatter(reenter_idx, P[reenter_idx], marker="o", label="Re-entries")
+axs[0].set_ylabel("Wealth")
+axs[0].set_title("Daily — Re-entry vs Running Low (K=0.5, ρ=0.25, μ=2.5% p.a., σ=5% p.a., tν=4)")
+axs[0].legend(loc="best")
+
+# Bottom: cumulative P&L
+axs[1].plot(tgrid, PnL_bh, label="Buy & Hold P&L")
+axs[1].plot(tgrid, PnL_g,  label="Stop-Loss (gross) P&L")
+axs[1].plot(tgrid, PnL_n,  label="Stop-Loss (net, 5 bps/side) P&L")
+axs[1].set_xlabel("Day")
+axs[1].set_ylabel("Cumulative P&L")
+axs[1].legend(loc="best")
+axs[1].set_title("Cumulative P&L (Daily)")
+
+plt.tight_layout()
+plt.show()
