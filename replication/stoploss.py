@@ -594,3 +594,191 @@ axs[1].set_title("Cumulative P&L (Daily)")
 
 plt.tight_layout()
 plt.show()
+
+
+# Re-run after kernel reset
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def rolling_ann_vol_1d(r, win, periods_per_year=252):
+    out = np.empty_like(r, dtype=float)
+    for t in range(len(r)):
+        lo = max(0, t - win + 1)
+        window = r[lo:t+1]
+        ddof = 1 if (t-lo+1) > 1 else 0
+        s = np.std(window, ddof=ddof)
+        out[t] = s * np.sqrt(periods_per_year)
+    return out
+
+def moving_average(x, win):
+    out = np.empty_like(x, dtype=float)
+    for t in range(len(x)):
+        lo = max(0, t - win + 1)
+        out[t] = np.mean(x[lo:t+1])
+    return out
+
+def stop_signal(returns: pd.Series,
+                stop_type: str,
+                reentry_type: str,
+                params_stop: dict,
+                params_entry: dict,
+                periods_per_year: int = 252) -> pd.Series:
+    r = returns.to_numpy()
+    n = len(r)
+    W = np.cumprod(1.0 + r)
+    W = np.insert(W, 0, 1.0)
+    M = np.maximum.accumulate(W)
+    DD = 1.0 - W / M
+
+    win = int(params_stop.get("win", 252) if stop_type == "vol" else params_entry.get("win", 252))
+    vol_ann = rolling_ann_vol_1d(r, win=win, periods_per_year=periods_per_year)
+
+    mode_s = params_stop.get("mode", "price_ma") if stop_type == "trend" else None
+    mode_e = params_entry.get("mode", "price_ma") if reentry_type == "trend" else None
+
+    if stop_type == "trend":
+        if mode_s == "price_ma":
+            ma_long_s = int(params_stop.get("ma_long", 200))
+            ma_s = moving_average(W[1:], ma_long_s)
+        elif mode_s == "dual_ma":
+            ma_short_s = int(params_stop.get("ma_short", 50))
+            ma_long_s  = int(params_stop.get("ma_long", 200))
+            ma_short_arr = moving_average(W[1:], ma_short_s)
+            ma_long_arr  = moving_average(W[1:], ma_long_s)
+        else:
+            raise ValueError("Unknown trend stop mode")
+
+    if reentry_type == "trend":
+        if mode_e == "price_ma":
+            ma_long_e = int(params_entry.get("ma_long", 200))
+            ma_e = moving_average(W[1:], ma_long_e)
+        elif mode_e == "dual_ma":
+            ma_short_e = int(params_entry.get("ma_short", 50))
+            ma_long_e  = int(params_entry.get("ma_long", 200))
+            ma_short_arr_e = moving_average(W[1:], ma_short_e)
+            ma_long_arr_e  = moving_average(W[1:], ma_long_e)
+        else:
+            raise ValueError("Unknown trend entry mode")
+
+    expo = np.ones(n, dtype=float)
+    stopped = False
+    running_low = 1.0
+    sigma_at_stop = 0.0
+    stop_level = 1.0
+    for t in range(1, n+1):
+        if stopped:
+            if reentry_type == "fixed":
+                recov = float(params_entry.get("recovery", 0.05))
+                from_ref = params_entry.get("from", "low")
+                ref = running_low if from_ref == "low" else stop_level
+                target = ref * (1.0 + recov)
+                reenter_now = (W[t] >= target)
+            elif reentry_type == "vol":
+                E = float(params_entry.get("E", 1.0))
+                ref = running_low
+                target = ref * (1.0 + E * sigma_at_stop)
+                reenter_now = (W[t] >= target)
+            elif reentry_type == "trend":
+                if mode_e == "price_ma":
+                    reenter_now = (W[t] >= ma_e[t-1])
+                else:
+                    reenter_now = (ma_short_arr_e[t-1] >= ma_long_arr_e[t-1])
+            else:
+                raise ValueError("Unknown reentry_type")
+            if reenter_now:
+                if t < n:
+                    expo[t] = 1.0
+                stopped = False
+
+        if not stopped:
+            if stop_type == "fixed":
+                dd_thr = float(params_stop.get("dd", 0.10))
+                trigger = (DD[t] > dd_thr)
+            elif stop_type == "vol":
+                K = float(params_stop.get("K", 1.0))
+                trigger = (DD[t] > K * vol_ann[t-1])
+            elif stop_type == "trend":
+                if mode_s == "price_ma":
+                    trigger = (W[t] < ma_s[t-1])
+                else:
+                    # recompute MAs here for clarity
+                    ma_s_short = moving_average(W[1:], params_stop.get("ma_short", 50))[t-1]
+                    ma_s_long  = moving_average(W[1:], params_stop.get("ma_long", 200))[t-1]
+                    trigger = (ma_s_short < ma_s_long)
+            else:
+                raise ValueError("Unknown stop_type")
+
+            if trigger:
+                if t < n:
+                    expo[t] = 0.0
+                stopped = True
+                stop_level = W[t]
+                running_low = W[t]
+                sigma_at_stop = vol_ann[t-1] if len(vol_ann) >= t else 0.0
+
+        if stopped and t < n:
+            expo[t] = 0.0
+        if stopped:
+            running_low = min(running_low, W[t])
+
+    return pd.Series(expo, index=returns.index, name="signal")
+
+# ---- Demo simulation ----
+rng = np.random.default_rng(20250822)
+years = 10; dpy = 252; N = years * dpy
+mu_ann = 0.10; sigma_ann = 0.10; rho = 0.25; nu = 4.0
+scale_t = np.sqrt(nu/(nu-2.0))
+mu_d = mu_ann / dpy; sigma_d = sigma_ann / np.sqrt(dpy)
+
+Zt = rng.standard_t(df=nu, size=N) / scale_t
+eps = np.sqrt(1.0 - rho**2) * sigma_d * Zt
+r = np.empty(N)
+r[0] = mu_d + eps[0]
+for t in range(1, N):
+    r[t] = mu_d + rho*(r[t-1] - mu_d) + eps[t]
+dates = pd.bdate_range("2010-01-01", periods=N)
+rets = pd.Series(r, index=dates, name="r")
+
+# Variants
+variants = [
+    ("Fixed: DD 10% / recover 5% from low",
+     {"stop_type":"fixed","reentry_type":"fixed",
+      "ps":{"dd":0.10},"pe":{"recovery":0.05,"from":"low"}}),
+    ("Fixed: DD 5% / recover 3% from low",
+     {"stop_type":"fixed","reentry_type":"fixed",
+      "ps":{"dd":0.05},"pe":{"recovery":0.03,"from":"low"}}),
+    ("Vol: K=0.5 / E=0.5 (252d σ)",
+     {"stop_type":"vol","reentry_type":"vol",
+      "ps":{"K":0.5,"win":252},"pe":{"E":0.5,"win":252}}),
+    ("Vol: K=1.0 / E=1.0 (252d σ)",
+     {"stop_type":"vol","reentry_type":"vol",
+      "ps":{"K":1.0,"win":252},"pe":{"E":1.0,"win":252}}),
+    ("Trend: price<200MA / reenter price≥200MA",
+     {"stop_type":"trend","reentry_type":"trend",
+      "ps":{"mode":"price_ma","ma_long":200},
+      "pe":{"mode":"price_ma","ma_long":200}}),
+    ("Trend: dual MA 50/200",
+     {"stop_type":"trend","reentry_type":"trend",
+      "ps":{"mode":"dual_ma","ma_short":50,"ma_long":200},
+      "pe":{"mode":"dual_ma","ma_short":50,"ma_long":200}}),
+]
+
+W_bh = (1.0 + rets).cumprod(); pnl_bh = W_bh - 1.0
+
+fig = plt.figure(figsize=(12,6))
+plt.plot(pnl_bh.index, pnl_bh.values, label="Buy & Hold")
+for label, cfg in variants:
+    sig = stop_signal(rets, cfg["stop_type"], cfg["reentry_type"], cfg["ps"], cfg["pe"], periods_per_year=dpy)
+    strat_rets = sig * rets
+    W_strat = (1.0 + strat_rets).cumprod()
+    pnl = W_strat - 1.0
+    plt.plot(pnl.index, pnl.values, label=label)
+
+plt.title("Cumulative P&L — Buy & Hold vs Stop/Entry Variants\n(AR(1)-t daily path, μ=10% p.a., σ=10% p.a., ρ=0.25, ν=4)")
+plt.xlabel("Date"); plt.ylabel("Cumulative P&L")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
