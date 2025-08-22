@@ -224,3 +224,229 @@ import caas_jupyter_tools
 caas_jupyter_tools.display_dataframe_to_user("Experiment A (until recovery + t-costs)", dfA.round(4))
 caas_jupyter_tools.display_dataframe_to_user("Experiment B (until recovery + t-costs)", dfB.round(4))
 
+
+
+
+# Daily Monte Carlo — separate exit (K) and entry (E) thresholds, log grids, two experiments
+# Settings: AR(1)-t daily, ρ=0.25, μ=2.5% p.a., σ=5% p.a., ν=4
+# Runtime tuned: 400 paths, 80 bootstrap reps, ~10 years horizon
+# Output: Sharpe vs threshold, MDD vs threshold with 95% bootstrap CIs
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(20250822)
+
+# ---------------- Settings ----------------
+years = 10
+days_per_year = 252
+N = years * days_per_year
+mu_ann = 0.025
+rho = 0.25
+sigma_ann = 0.05
+sigma_d = sigma_ann / np.sqrt(days_per_year)
+mu_d = mu_ann / days_per_year
+nu = 4.0
+scale_t = np.sqrt(nu/(nu-2.0))
+
+paths = 400
+tc_bps = 0.0005
+B = 80
+alpha = 0.05
+
+# Log grids
+high_seg = np.logspace(np.log10(3.0), np.log10(0.5), 5)
+low_seg  = np.logspace(np.log10(0.5), np.log10(0.05), 8)
+grid = np.unique(np.r_[high_seg, low_seg])[::-1]
+
+# ---------------- Helpers ----------------
+def simulate_AR_t_daily(mu_d, sigma_d, rho, paths, N):
+    Z = rng.standard_t(df=nu, size=(paths, N)) / scale_t
+    eps = np.sqrt(1.0 - rho**2) * sigma_d * Z
+    R = np.empty_like(Z)
+    R[:, 0] = mu_d + eps[:, 0]
+    for t in range(1, N):
+        R[:, t] = mu_d + rho*(R[:, t-1] - mu_d) + eps[:, t]
+    return R
+
+def wealth_from_returns(R):
+    W = np.cumprod(1.0 + R, axis=1)
+    return np.c_[np.ones((R.shape[0],1)), W]
+
+def rolling_ann_vol_paths(R, win=252):
+    P, T = R.shape
+    out = np.empty_like(R, dtype=float)
+    for i in range(P):
+        r = R[i]
+        for t in range(T):
+            lo = max(0, t - win + 1)
+            window = r[lo:t+1]
+            s = np.std(window, ddof=1 if (t-lo+1)>1 else 0)
+            out[i,t] = s * np.sqrt(days_per_year)
+    return out
+
+def apply_stop_runninglow_daily_single(P, M, vol_ann, K_exit, E_entry, tc):
+    N = len(vol_ann)
+    expo = np.ones(N, dtype=float)
+    costs = np.zeros(N, dtype=float)
+    stopped = False
+    sigma_stop = 0.0
+    running_low = 1.0
+    for t in range(1, N+1):
+        if stopped:
+            running_low = min(running_low, P[t])
+            target = running_low * (1.0 + E_entry * sigma_stop)
+            if P[t] >= target:
+                if t < N:
+                    expo[t] = 1.0
+                    if tc > 0: costs[t] -= tc
+                stopped = False
+        thr = K_exit * vol_ann[t-1]
+        DD_t = 1.0 - P[t] / M[t]
+        if (not stopped) and (DD_t > thr):
+            if t < N:
+                expo[t] = 0.0
+                if tc > 0: costs[t] -= tc
+            stopped = True
+            sigma_stop = vol_ann[t-1]
+            running_low = P[t]
+        if stopped and t < N:
+            expo[t] = 0.0
+    return expo, costs
+
+def sharpe_ann_from_daily(ret):
+    m = np.mean(ret, axis=1)
+    s = np.std(ret, axis=1, ddof=1)
+    return np.where(s>0, (m/s)*np.sqrt(days_per_year), np.nan)
+
+def max_drawdown(W):
+    M = np.maximum.accumulate(W, axis=1)
+    DD = W/M - 1.0
+    return DD.min(axis=1)
+
+def bootstrap_ci(values, stat="mean", B=80, alpha=0.05):
+    rng_loc = np.random.default_rng(12345)
+    n = len(values)
+    stats = np.empty(B)
+    for b in range(B):
+        idx = rng_loc.integers(0, n, size=n)
+        sample = values[idx]
+        stats[b] = np.nanmean(sample) if stat=="mean" else np.nanmedian(sample)
+    lo = np.nanpercentile(stats, 100*alpha/2)
+    hi = np.nanpercentile(stats, 100*(1-alpha/2))
+    return lo, hi
+
+def summarize(R_bh, W_bh, R_g, W_g, R_n, W_n):
+    sr_bh = sharpe_ann_from_daily(R_bh)
+    sr_g  = sharpe_ann_from_daily(R_g)
+    sr_n  = sharpe_ann_from_daily(R_n)
+    mdd_bh = max_drawdown(W_bh)
+    mdd_g  = max_drawdown(W_g)
+    mdd_n  = max_drawdown(W_n)
+    return {
+        "SR_bh": float(np.nanmean(sr_bh)),
+        "SR_g":  float(np.nanmean(sr_g)),
+        "SR_n":  float(np.nanmean(sr_n)),
+        "SR_bh_ci": bootstrap_ci(sr_bh, "mean", B=B, alpha=alpha),
+        "SR_g_ci":  bootstrap_ci(sr_g, "mean", B=B, alpha=alpha),
+        "SR_n_ci":  bootstrap_ci(sr_n, "mean", B=B, alpha=alpha),
+        "MDD_bh": float(np.nanmedian(mdd_bh)),
+        "MDD_g":  float(np.nanmedian(mdd_g)),
+        "MDD_n":  float(np.nanmedian(mdd_n)),
+        "MDD_bh_ci": bootstrap_ci(mdd_bh, "median", B=B, alpha=alpha),
+        "MDD_g_ci":  bootstrap_ci(mdd_g, "median", B=B, alpha=alpha),
+        "MDD_n_ci":  bootstrap_ci(mdd_n, "median", B=B, alpha=alpha),
+    }
+
+def plot_with_ci(ax, x, y, ci, label, ls):
+    x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
+    ylo = np.asarray([c[0] for c in ci], dtype=float)
+    yhi = np.asarray([c[1] for c in ci], dtype=float)
+    ax.plot(x, y, ls, label=label, linewidth=2)
+    ax.fill_between(x, ylo, yhi, alpha=0.15)
+
+# ---------------- Simulate base paths ----------------
+R = simulate_AR_t_daily(mu_d, sigma_d, rho, paths, N)
+W_bh = wealth_from_returns(R)
+M_bh = np.maximum.accumulate(W_bh, axis=1)
+vol_ann = rolling_ann_vol_paths(R, win=252)
+
+# Precompute BH stats
+SR_bh_paths = sharpe_ann_from_daily(R)
+MDD_bh_paths = max_drawdown(W_bh)
+SR_bh_mean = float(np.nanmean(SR_bh_paths))
+MDD_bh_med = float(np.nanmedian(MDD_bh_paths))
+SR_bh_ci = bootstrap_ci(SR_bh_paths, "mean", B=B, alpha=alpha)
+MDD_bh_ci = bootstrap_ci(MDD_bh_paths, "median", B=B, alpha=alpha)
+
+# ---------------- Experiment 1: vary E, K=1 ----------------
+rowsE = []
+for E in grid:
+    expo_g = np.ones_like(R); costs_g = np.zeros_like(R)
+    expo_n = np.ones_like(R); costs_n = np.zeros_like(R)
+    for i in range(paths):
+        e_g, c_g = apply_stop_runninglow_daily_single(W_bh[i], M_bh[i], vol_ann[i], K_exit=1.0, E_entry=E, tc=0.0)
+        e_n, c_n = apply_stop_runninglow_daily_single(W_bh[i], M_bh[i], vol_ann[i], K_exit=1.0, E_entry=E, tc=tc_bps)
+        expo_g[i], costs_g[i] = e_g, c_g
+        expo_n[i], costs_n[i] = e_n, c_n
+    R_g = expo_g * R + costs_g; R_n = expo_n * R + costs_n
+    W_g = wealth_from_returns(R_g); W_n = wealth_from_returns(R_n)
+    s = summarize(R, W_bh, R_g, W_g, R_n, W_n)
+    rowsE.append({"E": E, **s})
+
+dfE = pd.DataFrame(rowsE)
+
+# ---------------- Experiment 2: vary K, E=1 ----------------
+rowsK = []
+for K in grid:
+    expo_g = np.ones_like(R); costs_g = np.zeros_like(R)
+    expo_n = np.ones_like(R); costs_n = np.zeros_like(R)
+    for i in range(paths):
+        e_g, c_g = apply_stop_runninglow_daily_single(W_bh[i], M_bh[i], vol_ann[i], K_exit=K, E_entry=1.0, tc=0.0)
+        e_n, c_n = apply_stop_runninglow_daily_single(W_bh[i], M_bh[i], vol_ann[i], K_exit=K, E_entry=1.0, tc=tc_bps)
+        expo_g[i], costs_g[i] = e_g, c_g
+        expo_n[i], costs_n[i] = e_n, c_n
+    R_g = expo_g * R + costs_g; R_n = expo_n * R + costs_n
+    W_g = wealth_from_returns(R_g); W_n = wealth_from_returns(R_n)
+    s = summarize(R, W_bh, R_g, W_g, R_n, W_n)
+    rowsK.append({"K": K, **s})
+
+dfK = pd.DataFrame(rowsK)
+
+# ---------------- Plots ----------------
+fig, axs = plt.subplots(2,2, figsize=(13,10))
+
+# Exp 1 (vary E, K=1)
+plot_with_ci(axs[0,0], dfE["E"], dfE["SR_bh"], [SR_bh_ci]*len(dfE), "Buy & Hold", "o-")
+plot_with_ci(axs[0,0], dfE["E"], dfE["SR_g"],  list(dfE["SR_g_ci"]), "Stop (gross)", "s--")
+plot_with_ci(axs[0,0], dfE["E"], dfE["SR_n"],  list(dfE["SR_n_ci"]), "Stop (net)",   "d:")
+axs[0,0].set_xscale("log"); axs[0,0].invert_xaxis()
+axs[0,0].set_title("Sharpe vs E (K=1 fixed) — Daily"); axs[0,0].set_xlabel("E (σ units)"); axs[0,0].set_ylabel("Sharpe"); axs[0,0].legend()
+
+plot_with_ci(axs[0,1], dfE["E"], -100*dfE["MDD_bh"], [(-100*MDD_bh_ci[0], -100*MDD_bh_ci[1])]*len(dfE), "Buy & Hold", "o-")
+plot_with_ci(axs[0,1], dfE["E"], -100*dfE["MDD_g"],  [(-100*lo,-100*hi) for (lo,hi) in dfE["MDD_g_ci"]], "Stop (gross)", "s--")
+plot_with_ci(axs[0,1], dfE["E"], -100*dfE["MDD_n"],  [(-100*lo,-100*hi) for (lo,hi) in dfE["MDD_n_ci"]], "Stop (net)",   "d:")
+axs[0,1].set_xscale("log"); axs[0,1].invert_xaxis()
+axs[0,1].set_title("Median Max Drawdown vs E (K=1 fixed) — Daily"); axs[0,1].set_xlabel("E (σ units)"); axs[0,1].set_ylabel("MDD (%)")
+
+# Exp 2 (vary K, E=1)
+plot_with_ci(axs[1,0], dfK["K"], dfK["SR_bh"], [SR_bh_ci]*len(dfK), "Buy & Hold", "o-")
+plot_with_ci(axs[1,0], dfK["K"], dfK["SR_g"],  list(dfK["SR_g_ci"]), "Stop (gross)", "s--")
+plot_with_ci(axs[1,0], dfK["K"], dfK["SR_n"],  list(dfK["SR_n_ci"]), "Stop (net)",   "d:")
+axs[1,0].set_xscale("log"); axs[1,0].invert_xaxis()
+axs[1,0].set_title("Sharpe vs K (E=1 fixed) — Daily"); axs[1,0].set_xlabel("K (σ units)"); axs[1,0].set_ylabel("Sharpe"); axs[1,0].legend()
+
+plot_with_ci(axs[1,1], dfK["K"], -100*dfK["MDD_bh"], [(-100*MDD_bh_ci[0], -100*MDD_bh_ci[1])]*len(dfK), "Buy & Hold", "o-")
+plot_with_ci(axs[1,1], dfK["K"], -100*dfK["MDD_g"],  [(-100*lo,-100*hi) for (lo,hi) in dfK["MDD_g_ci"]], "Stop (gross)", "s--")
+plot_with_ci(axs[1,1], dfK["K"], -100*dfK["MDD_n"],  [(-100*lo,-100*hi) for (lo,hi) in dfK["MDD_n_ci"]], "Stop (net)",   "d:")
+axs[1,1].set_xscale("log"); axs[1,1].invert_xaxis()
+axs[1,1].set_title("Median Max Drawdown vs K (E=1 fixed) — Daily"); axs[1,1].set_xlabel("K (σ units)"); axs[1,1].set_ylabel("MDD (%)")
+
+plt.tight_layout()
+plt.show()
+
+import caas_jupyter_tools
+caas_jupyter_tools.display_dataframe_to_user("Experiment 1 (vary E, K=1) — daily, log grid", dfE.round(4))
+caas_jupyter_tools.display_dataframe_to_user("Experiment 2 (vary K, E=1) — daily, log grid", dfK.round(4))
+
